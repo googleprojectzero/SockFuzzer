@@ -23,5 +23,5 @@ RUN apt-get update && apt-get install -y \
 RUN curl -s https://raw.githubusercontent.com/chromium/chromium/master/tools/clang/scripts/update.py | python - --output-dir=/clang
 ENV PATH "$PATH:/clang/bin"
 
-# You can now build using cmake. I use a subdirectory "build3".
-WORKDIR /source/build3
+# You can now build using cmake. I use a subdirectory "build".
+WORKDIR /source/build

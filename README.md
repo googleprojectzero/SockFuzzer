@@ -5,20 +5,16 @@ for fuzzing the network stack in userland on macOS and Linux-based hosts.
 
 # Building and Using the Fuzzer
 
-This project uses CMake to build the fuzzer. Note that the BUILD folder
-contains generated files that must be left intact for the CMake build
-to work.
-
 Build the fuzzer the same way you would typically build a project using CMake
 for your platform. For example:
 
 ```
-$ mkdir build2; cd build2
+$ mkdir build; cd build
 $ cmake -GNinja ..
 $ ninja
 ```
 
-You can now run the net_fuzzer binary, optionally providing parameters as
+You can now run the `net_fuzzer` binary, optionally providing parameters as
 described in the [libFuzzer documentation](https://llvm.org/docs/LibFuzzer.html).
 
 # Extending the Fuzzer
@@ -32,7 +28,7 @@ areas.
 # Generating and Reviewing Coverage Reports
 
 Coverage reports are an important way to review the quality of the current
-fuzzer implementation. On Linux, a net_cov binary is generated containing
+fuzzer implementation. On Linux, a `net_cov` binary is generated containing
 [LLVM's source based code-coverage](https://clang.llvm.org/docs/SourceBasedCodeCoverage.html)
 instrumentation.
 
