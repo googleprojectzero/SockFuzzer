@@ -53,9 +53,3 @@ compile_commands.json
 
 # /tools/tests/zero-to-n
 /tools/tests/zero-to-n/zn*
-
-# nedwill's net fuzzer gitignore
-.vscode
-__pycache__
-*.o
-*.d
