@@ -1244,8 +1244,8 @@ in6_tmpaddrtimer(void *arg)
 	struct nd_ifinfo *ndi = NULL;
 	u_int8_t nullbuf[8];
 
-	timeout(in6_tmpaddrtimer, (caddr_t)0, (ip6_temp_preferred_lifetime -
-	    ip6_desync_factor - ip6_temp_regen_advance) * hz);
+	// timeout(in6_tmpaddrtimer, (caddr_t)0, (ip6_temp_preferred_lifetime -
+	//     ip6_desync_factor - ip6_temp_regen_advance) * hz);
 
 	bzero(nullbuf, sizeof(nullbuf));
 	ifnet_head_lock_shared();

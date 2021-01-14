@@ -3952,8 +3952,8 @@ fp_get_noref_locked_with_iocount(proc_t p, int fd)
 	    os_ref_get_count(&fp->fp_iocount) <= 1 ||
 	    ((fdp->fd_ofileflags[fd] & UF_RESERVED) &&
 	    !(fdp->fd_ofileflags[fd] & UF_CLOSING))) {
-		panic("%s: caller without an ioccount on fileproc (%d/:%p)",
-		    __func__, fd, fp);
+		// panic("%s: caller without an ioccount on fileproc (%d/:%p)",
+		//     __func__, fd, fp);
 	}
 
 	return fp;
@@ -4601,9 +4601,10 @@ falloc_withalloc(proc_t p, struct fileproc **resultfp, int *resultfd,
 	mac_file_label_init(fg);
 #endif
 
-	kauth_cred_ref(ctx->vc_ucred);
+	// nedwill: we don't support ucred
+	// kauth_cred_ref(ctx->vc_ucred);
 
-	fp->f_cred = ctx->vc_ucred;
+	// fp->f_cred = ctx->vc_ucred;
 
 #if CONFIG_MACF
 	mac_file_label_associate(fp->f_cred, fg);
@@ -5118,7 +5119,8 @@ fileproc_drain(proc_t p, struct fileproc * fp)
 		}
 		p->p_fpdrainwait = 1;
 
-		msleep(&p->p_fpdrainwait, &p->p_fdmlock, PRIBIO, "fpdrain", NULL);
+		// nedwill: don't sleep
+		// msleep(&p->p_fpdrainwait, &p->p_fdmlock, PRIBIO, "fpdrain", NULL);
 	}
 #if DIAGNOSTIC
 	if ((fp->fp_flags & FP_INSELECT) != 0) {
@@ -5757,8 +5759,8 @@ fileproc_free(struct fileproc *fp)
 	os_ref_count_t __unused refc = os_ref_release(&fp->fp_iocount);
 #if DEVELOPMENT || DEBUG
 	if (0 != refc) {
-		panic("%s: pid %d refc: %u != 0",
-		    __func__, proc_pid(current_proc()), refc);
+		// panic("%s: pid %d refc: %u != 0",
+		//     __func__, proc_pid(current_proc()), refc);
 	}
 #endif
 	switch (FILEPROC_TYPE(fp)) {

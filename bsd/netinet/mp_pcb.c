@@ -57,7 +57,7 @@ static boolean_t mp_timeout_run;        /* MP timer is scheduled to run */
 static boolean_t mp_garbage_collecting;
 static boolean_t mp_ticking;
 static void mp_sched_timeout(void);
-static void mp_timeout(void *);
+void mp_timeout(void *);
 
 static void
 mpp_lock_assert_held(struct mppcb *mp)
@@ -83,7 +83,7 @@ mp_pcbinit(void)
 	lck_mtx_init(&mp_timeout_lock, mp_lock_grp, mp_lock_attr);
 }
 
-static void
+void
 mp_timeout(void *arg)
 {
 #pragma unused(arg)
@@ -150,7 +150,7 @@ mp_sched_timeout(void)
 	if (!mp_timeout_run && (mp_garbage_collecting || mp_ticking)) {
 		lck_mtx_convert_spin(&mp_timeout_lock);
 		mp_timeout_run = TRUE;
-		timeout(mp_timeout, NULL, hz);
+		// timeout(mp_timeout, NULL, hz);
 	}
 }
 

@@ -189,9 +189,9 @@ struct nd_rtihead nd_rti_list;
  * non-zero.  The increment happens on various places when we allocate
  * new ND entries, default routers, prefixes and addresses.
  */
-static int nd6_timeout_run;             /* nd6_timeout is scheduled to run */
-static void nd6_timeout(void *);
-int nd6_sched_timeout_want;             /* demand count for timer to be sched */
+static int nd6_timeout_run;		/* nd6_timeout is scheduled to run */
+void nd6_timeout(void *);
+int nd6_sched_timeout_want;		/* demand count for timer to be sched */
 static boolean_t nd6_fast_timer_on = FALSE;
 
 /* Serialization variables for nd6_service(), protected by rnh_lock */
@@ -214,7 +214,7 @@ static void nd6_llinfo_refresh(struct rtentry *);
 static uint64_t ln_getexpire(struct llinfo_nd6 *);
 
 static void nd6_service(void *);
-static void nd6_slowtimo(void *);
+void nd6_slowtimo(void *);
 static int nd6_is_new_addr_neighbor(struct sockaddr_in6 *, struct ifnet *);
 static int nd6_siocgdrlst(void *, int);
 static int nd6_siocgprlst(void *, int);
@@ -309,7 +309,7 @@ nd6_init(void)
 	nd6_init_done = 1;
 
 	/* start timer */
-	timeout(nd6_slowtimo, NULL, ND6_SLOWTIMER_INTERVAL * hz);
+	// timeout(nd6_slowtimo, NULL, ND6_SLOWTIMER_INTERVAL * hz);
 }
 
 static struct llinfo_nd6 *
@@ -1723,7 +1723,7 @@ nd6_drain(void *arg)
  * variable so that later we don't end up ignoring a ``fast timer''
  * request if the 5 second timer is running (see nd6_sched_timeout).
  */
-static void
+void
 nd6_timeout(void *arg)
 {
 	struct nd6svc_arg sarg;
@@ -1741,7 +1741,7 @@ nd6_timeout(void *arg)
 	    sarg.aging, sarg.sticky, sarg.killed);
 	/* re-arm the timer if there's work to do */
 	nd6_timeout_run--;
-	VERIFY(nd6_timeout_run >= 0 && nd6_timeout_run < 2);
+	// VERIFY(nd6_timeout_run >= 0 && nd6_timeout_run < 2);
 	if (arg == &nd6_fast_timer_on) {
 		nd6_fast_timer_on = FALSE;
 	}
@@ -1789,7 +1789,7 @@ nd6_sched_timeout(struct timeval *atv, struct timeval *ltv)
 			    (uint64_t)atv->tv_sec, (uint64_t)atv->tv_usec,
 			    nd6_sched_timeout_want);
 			nd6_fast_timer_on = TRUE;
-			timeout(nd6_timeout, &nd6_fast_timer_on, tvtohz(atv));
+			// timeout(nd6_timeout, &nd6_fast_timer_on, tvtohz(atv));
 		} else {
 			nd6log2(debug, "%s: timer scheduled in "
 			    "T+%llus.%lluu with %llus.%lluu leeway "
@@ -1797,8 +1797,8 @@ nd6_sched_timeout(struct timeval *atv, struct timeval *ltv)
 			    (uint64_t)atv->tv_usec, (uint64_t)ltv->tv_sec,
 			    (uint64_t)ltv->tv_usec, nd6_sched_timeout_want);
 			nd6_fast_timer_on = FALSE;
-			timeout_with_leeway(nd6_timeout, NULL,
-			    tvtohz(atv), tvtohz(ltv));
+			// timeout_with_leeway(nd6_timeout, NULL,
+			//     tvtohz(atv), tvtohz(ltv));
 		}
 		nd6_timeout_run++;
 		nd6_sched_timeout_want = 0;
@@ -1811,7 +1811,7 @@ nd6_sched_timeout(struct timeval *atv, struct timeval *ltv)
 		nd6_fast_timer_on = TRUE;
 		nd6_sched_timeout_want = 0;
 		nd6_timeout_run++;
-		timeout(nd6_timeout, &nd6_fast_timer_on, tvtohz(atv));
+		// timeout(nd6_timeout, &nd6_fast_timer_on, tvtohz(atv));
 	} else {
 		if (ltv == NULL) {
 			nd6log2(debug, "%s: not scheduling timer: "
@@ -3959,7 +3959,7 @@ fail:
 	}
 }
 
-static void
+void
 nd6_slowtimo(void *arg)
 {
 #pragma unused(arg)
@@ -3990,7 +3990,7 @@ nd6_slowtimo(void *arg)
 		lck_mtx_unlock(&nd6if->lock);
 	}
 	ifnet_head_done();
-	timeout(nd6_slowtimo, NULL, ND6_SLOWTIMER_INTERVAL * hz);
+	// timeout(nd6_slowtimo, NULL, ND6_SLOWTIMER_INTERVAL * hz);
 }
 
 int

@@ -907,7 +907,8 @@ ioctl(struct proc *p, struct ioctl_args *uap, __unused int32_t *retval)
 	char stkbuf[STK_PARAMS] = {};
 	int fd = uap->fd;
 	u_long com = uap->com;
-	struct vfs_context context = *vfs_context_current();
+	// TODO(nedwill): implement real vfs_context_current
+	struct vfs_context context = {}; // *vfs_context_current();
 
 	AUDIT_ARG(fd, uap->fd);
 	AUDIT_ARG(addr, uap->data);

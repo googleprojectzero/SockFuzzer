@@ -650,7 +650,9 @@ mptcp_output(struct mptses *mpte)
 	mpte->mpte_mppcb->mpp_flags |= MPP_WUPCALL;
 
 	old_snd_nxt = mp_tp->mpt_sndnxt;
-	while (mptcp_can_send_more(mp_tp, FALSE)) {
+	// nedwill: limit attempts to avoid infinite loop
+	int attempts = 0;
+	while (mptcp_can_send_more(mp_tp, FALSE) && attempts++ < 16) {
 		/* get the "best" subflow to be used for transmission */
 		mpts = mptcp_get_subflow(mpte, &preferred_mpts);
 		if (mpts == NULL) {

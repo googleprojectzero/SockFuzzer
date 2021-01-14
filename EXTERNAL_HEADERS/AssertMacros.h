@@ -213,11 +213,11 @@
    #ifdef KERNEL
       #include <libkern/libkern.h>
       #define DEBUG_ASSERT_MESSAGE(name, assertion, label, message, file, line, value) \
-                                  printf( "AssertMacros: %s, %s file: %s, line: %d\n", assertion, (message!=0) ? message : "", file, line);
+                                  printf( "AssertMacros: %s, %s file: %s, line: %d\n", assertion, (message!=NULL) ? message : "", file, line);
    #else
       #include <stdio.h>
       #define DEBUG_ASSERT_MESSAGE(name, assertion, label, message, file, line, value) \
-                                  fprintf(stderr, "AssertMacros: %s, %s file: %s, line: %d\n", assertion, (message!=0) ? message : "", file, line);
+                                  fprintf(stderr, "AssertMacros: %s, %s file: %s, line: %d\n", assertion, (message!=NULL) ? message : "", file, line);
    #endif
 #endif
 
@@ -638,7 +638,7 @@
 		  if ( __builtin_expect(!(assertion), 0) ) {                             \
 			  DEBUG_ASSERT_MESSAGE(                                              \
 					  DEBUG_ASSERT_COMPONENT_NAME_STRING,                        \
-					  #assertion, 0, 0, __FILE__, __LINE__, 0 );                 \
+					  #assertion, 0, NULL, __FILE__, __LINE__, 0 );                 \
 			  action;                                                            \
 		  }                                                                      \
 		  else do {} while (0)
@@ -680,7 +680,7 @@
 			  if ( __builtin_expect(!(assertion), 0) ) {                          \
 				  DEBUG_ASSERT_MESSAGE(                                           \
 					  DEBUG_ASSERT_COMPONENT_NAME_STRING,                         \
-					  #assertion, #exceptionLabel, 0, __FILE__, __LINE__,  0);    \
+					  #assertion, #exceptionLabel, NULL, __FILE__, __LINE__,  0);    \
 				  goto exceptionLabel;                                            \
 			  }                                                                   \
 		  } while ( 0 )
@@ -735,7 +735,7 @@
 			  {                                                                   \
 				  DEBUG_ASSERT_MESSAGE(                                           \
 					  DEBUG_ASSERT_COMPONENT_NAME_STRING,                         \
-					  #assertion, #exceptionLabel, 0,   __FILE__, __LINE__, 0);   \
+					  #assertion, #exceptionLabel, NULL,   __FILE__, __LINE__, 0);   \
 				  {                                                               \
 					  action;                                                     \
 				  }                                                               \

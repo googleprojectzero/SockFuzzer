@@ -98,7 +98,7 @@ static struct domain *pffinddomain_locked(int);
 static boolean_t domain_timeout_run;    /* domain timer is scheduled to run */
 static boolean_t domain_draining;
 static void domain_sched_timeout(void);
-static void domain_timeout(void *);
+void domain_timeout(void *);
 
 lck_grp_t       *domain_proto_mtx_grp;
 lck_attr_t      *domain_proto_mtx_attr;
@@ -697,7 +697,7 @@ extern struct domain vsockdomain_s;
 extern struct domain mpdomain_s;
 #endif /* MULTIPATH */
 
-static void
+void
 domain_timeout(void *arg)
 {
 #pragma unused(arg)
@@ -707,7 +707,7 @@ domain_timeout(void *arg)
 
 	lck_mtx_lock(&domain_timeout_mtx);
 	if (domain_draining) {
-		domain_draining = FALSE;
+		// domain_draining = FALSE;
 		lck_mtx_unlock(&domain_timeout_mtx);
 
 		guard = domain_guard_deploy();
@@ -724,8 +724,8 @@ domain_timeout(void *arg)
 	}
 
 	/* re-arm the timer if there's work to do */
-	domain_timeout_run = FALSE;
-	domain_sched_timeout();
+	// domain_timeout_run = FALSE;
+	// domain_sched_timeout();
 	lck_mtx_unlock(&domain_timeout_mtx);
 }
 

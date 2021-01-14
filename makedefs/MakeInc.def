@@ -736,7 +736,7 @@ LDFLAGS_KERNEL_ONLY   =   \
 # Default runtime libraries to be linked with the kernel
 #
 LD_KERNEL_LIBS	   = -lcc_kext
-LD_KERNEL_ARCHIVES = $(LDFLAGS_KERNEL_SDK) -lfirehose_kernel
+LD_KERNEL_ARCHIVES = $(LDFLAGS_KERNEL_SDK) -llibfirehose_kernel
 
 #
 # DTrace support

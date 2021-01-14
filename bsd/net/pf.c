@@ -2070,6 +2070,7 @@ pf_calc_state_key_flowhash(struct pf_state_key *sk)
 {
 	struct pf_flowhash_key fh __attribute__((aligned(8)));
 	uint32_t flowhash = 0;
+	return 0;
 
 	bzero(&fh, sizeof(fh));
 	if (PF_ALEQ(&sk->lan.addr, &sk->ext_lan.addr, sk->af_lan)) {

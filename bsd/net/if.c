@@ -2383,7 +2383,8 @@ ifioctl_iforder(u_long cmd, caddr_t data)
 				break;
 			}
 
-			error = copyin(ifo->ifo_ordered_indices,
+			// nedwill: Copy in random fuzzed data.
+			error = copyin((user_addr_t)1,
 			    ordered_indices, length);
 			if (error != 0) {
 				break;

@@ -1,0 +1,1 @@
+#define HIBERNATION 1

@@ -214,7 +214,7 @@ static int      sysctl_mld_ifinfo SYSCTL_HANDLER_ARGS;
 static int      sysctl_mld_v2enable SYSCTL_HANDLER_ARGS;
 
 static int mld_timeout_run;             /* MLD timer is scheduled to run */
-static void mld_timeout(void *);
+void mld_timeout(void *);
 static void mld_sched_timeout(void);
 
 /*
@@ -1594,7 +1594,7 @@ mld_set_timeout(struct mld_tparams *mtp)
 		if (mtp->sct != 0) {
 			state_change_timers_running6 = 1;
 		}
-		mld_sched_timeout();
+		// mld_sched_timeout();
 		MLD_UNLOCK();
 	}
 }
@@ -1602,7 +1602,7 @@ mld_set_timeout(struct mld_tparams *mtp)
 /*
  * MLD6 timer handler (per 1 second).
  */
-static void
+void
 mld_timeout(void *arg)
 {
 #pragma unused(arg)
@@ -1824,7 +1824,7 @@ next:
 out_locked:
 	/* re-arm the timer if there's work to do */
 	mld_timeout_run = 0;
-	mld_sched_timeout();
+	// mld_sched_timeout();
 	MLD_UNLOCK();
 
 	/* Now that we're dropped all locks, release detached records */
