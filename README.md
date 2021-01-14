@@ -17,6 +17,9 @@ $ ninja
 You can now run the `net_fuzzer` binary, optionally providing parameters as
 described in the [libFuzzer documentation](https://llvm.org/docs/LibFuzzer.html).
 
+A Dockerfile is included which shows how to prepare a Debian environment to build
+the project. Feel free to use this container to build and run the fuzzer.
+
 # Extending the Fuzzer
 
 This project is currently an all-in-one fuzzer for XNU networking. You can extend
