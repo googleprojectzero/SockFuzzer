@@ -230,10 +230,7 @@ set(OSFMK_DEFINES
     -DZLIB
 )
 
-set(SAN_DEFINES
-    -DKASAN_OFFSET=0
-    -DKASAN_SCALE=0
-)
+set(SAN_DEFINES -DKASAN_OFFSET=0 -DKASAN_SCALE=0)
 
 set(XNU_WARNING_FLAGS
     -Wno-address-of-packed-member -Wno-unguarded-availability-new
@@ -306,181 +303,181 @@ add_library(fuzzer STATIC ${LIBFUZZER_SOURCES} ${LIBFUZZER_HEADERS})
 target_compile_options(fuzzer PRIVATE -g -std=c++11 -Werror)
 
 set(XNU_SOURCES
-    bsd/conf/param.c
-    bsd/kern/kern_asl.c
-    bsd/kern/kern_control.c
-    bsd/kern/kern_descrip.c
-    bsd/kern/kern_event.c
-    bsd/kern/kern_newsysctl.c
-    bsd/kern/kern_sig.c
-    bsd/kern/kern_subr.c
-    bsd/kern/kpi_mbuf.c
-    bsd/kern/kpi_socket.c
-    bsd/kern/kpi_socketfilter.c
-    bsd/kern/subr_eventhandler.c
-    bsd/kern/sys_domain.c
-    bsd/kern/sys_generic.c
-    bsd/kern/sys_pipe.c
-    bsd/kern/sys_reason.c
-    bsd/kern/sys_socket.c
-    bsd/kern/uipc_domain.c
-    bsd/kern/uipc_mbuf.c
-    bsd/kern/uipc_mbuf2.c
-    bsd/kern/uipc_proto.c
-    bsd/kern/uipc_socket.c
-    bsd/kern/uipc_socket2.c
-    bsd/kern/uipc_syscalls.c
-    bsd/kern/uipc_usrreq.c
-    bsd/kern/vsock_domain.c
-    bsd/net/bpf.c
-    bsd/net/bpf_filter.c
-    bsd/net/classq/classq.c
-    bsd/net/classq/classq_fq_codel.c
-    bsd/net/classq/classq_sfb.c
-    bsd/net/classq/classq_subr.c
-    bsd/net/content_filter.c
-    bsd/net/devtimer.c
-    bsd/net/dlil.c
-    bsd/net/ether_inet6_pr_module.c
-    bsd/net/ether_if_module.c
-    bsd/net/ether_inet_pr_module.c
-    bsd/net/flowadv.c
-    bsd/net/frame802154.c
-    bsd/net/if.c
-    bsd/net/if_6lowpan.c
-    bsd/net/if_bridge.c
-    bsd/net/if_bond.c
-    bsd/net/if_fake.c
-    bsd/net/if_llatbl.c
-    bsd/net/if_llreach.c
-    bsd/net/if_loop.c
-    bsd/net/if_low_power_mode.c
-    bsd/net/if_headless.c
-    bsd/net/if_ipsec.c
-    bsd/net/if_ports_used.c
-    bsd/net/if_stf.c
-    bsd/net/if_vlan.c
-    bsd/net/init.c
-    bsd/net/kpi_interface.c
-    bsd/net/kpi_interfacefilter.c
-    bsd/net/kpi_protocol.c
-    bsd/net/linkaddr.c
-    bsd/net/multicast_list.c
-    bsd/net/ndrv.c
-    bsd/net/net_str_id.c
-    bsd/net/pf.c
-    bsd/net/pf_if.c
-    bsd/net/pf_ioctl.c
-    bsd/net/pf_norm.c
-    bsd/net/pf_osfp.c
-    bsd/net/pf_pbuf.c
-    bsd/net/pf_ruleset.c
-    bsd/net/pf_table.c
-    bsd/net/sixxlowpan.c
-    bsd/net/necp.c
-    bsd/net/necp_client.c
-    bsd/net/net_perf.c
-    bsd/net/network_agent.c
-    bsd/net/ntstat.c
-    bsd/net/pktap.c
-    bsd/net/pktsched/pktsched.c
-    bsd/net/pktsched/pktsched_fq_codel.c
-    bsd/net/pktsched/pktsched_netem.c
-    bsd/net/raw_cb.c
-    bsd/net/raw_usrreq.c
-    bsd/net/radix.c
-    bsd/net/route.c
-    bsd/net/rtsock.c
-    bsd/netinet/flow_divert.c
-    bsd/netinet/in.c
-    bsd/netinet/igmp.c
-    bsd/netinet/in_arp.c
-    bsd/netinet/in_cksum.c
-    bsd/netinet/in_mcast.c
-    bsd/netinet/in_pcb.c
-    bsd/netinet/in_pcblist.c
-    bsd/netinet/in_proto.c
-    bsd/netinet/in_rmx.c
-    bsd/netinet/in_tclass.c
-    bsd/netinet/ip_dummynet.c
-    bsd/netinet/ip_ecn.c
-    bsd/netinet/ip_encap.c
-    bsd/netinet/ip_icmp.c
-    bsd/netinet/ip_id.c
-    bsd/netinet/ip_input.c
-    bsd/netinet/ip_output.c
-    bsd/netinet/kpi_ipfilter.c
-    bsd/netinet/mp_pcb.c
-    bsd/netinet/mp_pcb.h
-    bsd/netinet/mp_proto.c
-    bsd/netinet/mptcp.c
-    bsd/netinet/mptcp.h
-    bsd/netinet/mptcp_opt.c
-    bsd/netinet/mptcp_opt.h
-    bsd/netinet/mptcp_subr.c
-    bsd/netinet/mptcp_timer.c
-    bsd/netinet/mptcp_timer.h
-    bsd/netinet/mptcp_usrreq.c
-    bsd/netinet/raw_ip.c
-    bsd/netinet/tcp_cache.c
-    bsd/netinet/tcp_cc.c
-    bsd/netinet/tcp_cubic.c
-    bsd/netinet/tcp_input.c
-    bsd/netinet/tcp_ledbat.c
-    bsd/netinet/tcp_log.c
-    bsd/netinet/tcp_newreno.c
-    bsd/netinet/tcp_output.c
-    bsd/netinet/tcp_sack.c
-    bsd/netinet/tcp_subr.c
-    bsd/netinet/tcp_timer.c
-    bsd/netinet/tcp_usrreq.c
-    bsd/netinet/udp_usrreq.c
-    bsd/netinet6/ah_core.c
-    bsd/netinet6/ah_input.c
-    bsd/netinet6/ah_output.c
-    bsd/netinet6/dest6.c
-    bsd/netinet6/esp_chachapoly.c
-    bsd/netinet6/esp_core.c
-    bsd/netinet6/esp_input.c
-    bsd/netinet6/esp_output.c
-    bsd/netinet6/esp_rijndael.c
-    bsd/netinet6/frag6.c
-    bsd/netinet6/icmp6.c
-    bsd/netinet6/in6.c
-    bsd/netinet6/in6_cga.c
-    bsd/netinet6/in6_cksum.c
-    bsd/netinet6/in6_ifattach.c
-    bsd/netinet6/in6_mcast.c
-    bsd/netinet6/in6_pcb.c
-    bsd/netinet6/in6_proto.c
-    bsd/netinet6/in6_rmx.c
-    bsd/netinet6/in6_src.c
-    bsd/netinet6/ipsec.c
-    bsd/netinet6/ip6_forward.c
-    bsd/netinet6/ip6_input.c
-    bsd/netinet6/ip6_id.c
-    bsd/netinet6/ip6_output.c
-    bsd/netinet6/mld6.c
-    bsd/netinet6/nd6.c
-    bsd/netinet6/nd6_nbr.c
-    bsd/netinet6/nd6_prproxy.c
-    bsd/netinet6/nd6_rti.c
-    bsd/netinet6/nd6_rtr.c
-    bsd/netinet6/nd6_send.c
-    bsd/netinet6/raw_ip6.c
-    bsd/netinet6/route6.c
-    bsd/netinet6/scope6.c
-    bsd/netinet6/udp6_output.c
-    bsd/netinet6/udp6_usrreq.c
-    bsd/netkey/key.c
-    bsd/netkey/keydb.c
-    bsd/netkey/keysock.c
-    bsd/sys/mcache.h
-    libkern/crypto/corecrypto_chacha20poly1305.c
-    libkern/crypto/corecrypto_des.c
-    libkern/crypto/corecrypto_sha2.c
-    libkern/gen/OSAtomicOperations.c
-    security/mac_system.c
+    third_party/xnu/bsd/conf/param.c
+    third_party/xnu/bsd/kern/kern_asl.c
+    third_party/xnu/bsd/kern/kern_control.c
+    third_party/xnu/bsd/kern/kern_descrip.c
+    third_party/xnu/bsd/kern/kern_event.c
+    third_party/xnu/bsd/kern/kern_newsysctl.c
+    third_party/xnu/bsd/kern/kern_sig.c
+    third_party/xnu/bsd/kern/kern_subr.c
+    third_party/xnu/bsd/kern/kpi_mbuf.c
+    third_party/xnu/bsd/kern/kpi_socket.c
+    third_party/xnu/bsd/kern/kpi_socketfilter.c
+    third_party/xnu/bsd/kern/subr_eventhandler.c
+    third_party/xnu/bsd/kern/sys_domain.c
+    third_party/xnu/bsd/kern/sys_generic.c
+    third_party/xnu/bsd/kern/sys_pipe.c
+    third_party/xnu/bsd/kern/sys_reason.c
+    third_party/xnu/bsd/kern/sys_socket.c
+    third_party/xnu/bsd/kern/uipc_domain.c
+    third_party/xnu/bsd/kern/uipc_mbuf.c
+    third_party/xnu/bsd/kern/uipc_mbuf2.c
+    third_party/xnu/bsd/kern/uipc_proto.c
+    third_party/xnu/bsd/kern/uipc_socket.c
+    third_party/xnu/bsd/kern/uipc_socket2.c
+    third_party/xnu/bsd/kern/uipc_syscalls.c
+    third_party/xnu/bsd/kern/uipc_usrreq.c
+    third_party/xnu/bsd/kern/vsock_domain.c
+    third_party/xnu/bsd/net/bpf.c
+    third_party/xnu/bsd/net/bpf_filter.c
+    third_party/xnu/bsd/net/classq/classq.c
+    third_party/xnu/bsd/net/classq/classq_fq_codel.c
+    third_party/xnu/bsd/net/classq/classq_sfb.c
+    third_party/xnu/bsd/net/classq/classq_subr.c
+    third_party/xnu/bsd/net/content_filter.c
+    third_party/xnu/bsd/net/devtimer.c
+    third_party/xnu/bsd/net/dlil.c
+    third_party/xnu/bsd/net/ether_inet6_pr_module.c
+    third_party/xnu/bsd/net/ether_if_module.c
+    third_party/xnu/bsd/net/ether_inet_pr_module.c
+    third_party/xnu/bsd/net/flowadv.c
+    third_party/xnu/bsd/net/frame802154.c
+    third_party/xnu/bsd/net/if.c
+    third_party/xnu/bsd/net/if_6lowpan.c
+    third_party/xnu/bsd/net/if_bridge.c
+    third_party/xnu/bsd/net/if_bond.c
+    third_party/xnu/bsd/net/if_fake.c
+    third_party/xnu/bsd/net/if_llatbl.c
+    third_party/xnu/bsd/net/if_llreach.c
+    third_party/xnu/bsd/net/if_loop.c
+    third_party/xnu/bsd/net/if_low_power_mode.c
+    third_party/xnu/bsd/net/if_headless.c
+    third_party/xnu/bsd/net/if_ipsec.c
+    third_party/xnu/bsd/net/if_ports_used.c
+    third_party/xnu/bsd/net/if_stf.c
+    third_party/xnu/bsd/net/if_vlan.c
+    third_party/xnu/bsd/net/init.c
+    third_party/xnu/bsd/net/kpi_interface.c
+    third_party/xnu/bsd/net/kpi_interfacefilter.c
+    third_party/xnu/bsd/net/kpi_protocol.c
+    third_party/xnu/bsd/net/linkaddr.c
+    third_party/xnu/bsd/net/multicast_list.c
+    third_party/xnu/bsd/net/ndrv.c
+    third_party/xnu/bsd/net/net_str_id.c
+    third_party/xnu/bsd/net/pf.c
+    third_party/xnu/bsd/net/pf_if.c
+    third_party/xnu/bsd/net/pf_ioctl.c
+    third_party/xnu/bsd/net/pf_norm.c
+    third_party/xnu/bsd/net/pf_osfp.c
+    third_party/xnu/bsd/net/pf_pbuf.c
+    third_party/xnu/bsd/net/pf_ruleset.c
+    third_party/xnu/bsd/net/pf_table.c
+    third_party/xnu/bsd/net/sixxlowpan.c
+    third_party/xnu/bsd/net/necp.c
+    third_party/xnu/bsd/net/necp_client.c
+    third_party/xnu/bsd/net/net_perf.c
+    third_party/xnu/bsd/net/network_agent.c
+    third_party/xnu/bsd/net/ntstat.c
+    third_party/xnu/bsd/net/pktap.c
+    third_party/xnu/bsd/net/pktsched/pktsched.c
+    third_party/xnu/bsd/net/pktsched/pktsched_fq_codel.c
+    third_party/xnu/bsd/net/pktsched/pktsched_netem.c
+    third_party/xnu/bsd/net/raw_cb.c
+    third_party/xnu/bsd/net/raw_usrreq.c
+    third_party/xnu/bsd/net/radix.c
+    third_party/xnu/bsd/net/route.c
+    third_party/xnu/bsd/net/rtsock.c
+    third_party/xnu/bsd/netinet/flow_divert.c
+    third_party/xnu/bsd/netinet/in.c
+    third_party/xnu/bsd/netinet/igmp.c
+    third_party/xnu/bsd/netinet/in_arp.c
+    third_party/xnu/bsd/netinet/in_cksum.c
+    third_party/xnu/bsd/netinet/in_mcast.c
+    third_party/xnu/bsd/netinet/in_pcb.c
+    third_party/xnu/bsd/netinet/in_pcblist.c
+    third_party/xnu/bsd/netinet/in_proto.c
+    third_party/xnu/bsd/netinet/in_rmx.c
+    third_party/xnu/bsd/netinet/in_tclass.c
+    third_party/xnu/bsd/netinet/ip_dummynet.c
+    third_party/xnu/bsd/netinet/ip_ecn.c
+    third_party/xnu/bsd/netinet/ip_encap.c
+    third_party/xnu/bsd/netinet/ip_icmp.c
+    third_party/xnu/bsd/netinet/ip_id.c
+    third_party/xnu/bsd/netinet/ip_input.c
+    third_party/xnu/bsd/netinet/ip_output.c
+    third_party/xnu/bsd/netinet/kpi_ipfilter.c
+    third_party/xnu/bsd/netinet/mp_pcb.c
+    third_party/xnu/bsd/netinet/mp_pcb.h
+    third_party/xnu/bsd/netinet/mp_proto.c
+    third_party/xnu/bsd/netinet/mptcp.c
+    third_party/xnu/bsd/netinet/mptcp.h
+    third_party/xnu/bsd/netinet/mptcp_opt.c
+    third_party/xnu/bsd/netinet/mptcp_opt.h
+    third_party/xnu/bsd/netinet/mptcp_subr.c
+    third_party/xnu/bsd/netinet/mptcp_timer.c
+    third_party/xnu/bsd/netinet/mptcp_timer.h
+    third_party/xnu/bsd/netinet/mptcp_usrreq.c
+    third_party/xnu/bsd/netinet/raw_ip.c
+    third_party/xnu/bsd/netinet/tcp_cache.c
+    third_party/xnu/bsd/netinet/tcp_cc.c
+    third_party/xnu/bsd/netinet/tcp_cubic.c
+    third_party/xnu/bsd/netinet/tcp_input.c
+    third_party/xnu/bsd/netinet/tcp_ledbat.c
+    third_party/xnu/bsd/netinet/tcp_log.c
+    third_party/xnu/bsd/netinet/tcp_newreno.c
+    third_party/xnu/bsd/netinet/tcp_output.c
+    third_party/xnu/bsd/netinet/tcp_sack.c
+    third_party/xnu/bsd/netinet/tcp_subr.c
+    third_party/xnu/bsd/netinet/tcp_timer.c
+    third_party/xnu/bsd/netinet/tcp_usrreq.c
+    third_party/xnu/bsd/netinet/udp_usrreq.c
+    third_party/xnu/bsd/netinet6/ah_core.c
+    third_party/xnu/bsd/netinet6/ah_input.c
+    third_party/xnu/bsd/netinet6/ah_output.c
+    third_party/xnu/bsd/netinet6/dest6.c
+    third_party/xnu/bsd/netinet6/esp_chachapoly.c
+    third_party/xnu/bsd/netinet6/esp_core.c
+    third_party/xnu/bsd/netinet6/esp_input.c
+    third_party/xnu/bsd/netinet6/esp_output.c
+    third_party/xnu/bsd/netinet6/esp_rijndael.c
+    third_party/xnu/bsd/netinet6/frag6.c
+    third_party/xnu/bsd/netinet6/icmp6.c
+    third_party/xnu/bsd/netinet6/in6.c
+    third_party/xnu/bsd/netinet6/in6_cga.c
+    third_party/xnu/bsd/netinet6/in6_cksum.c
+    third_party/xnu/bsd/netinet6/in6_ifattach.c
+    third_party/xnu/bsd/netinet6/in6_mcast.c
+    third_party/xnu/bsd/netinet6/in6_pcb.c
+    third_party/xnu/bsd/netinet6/in6_proto.c
+    third_party/xnu/bsd/netinet6/in6_rmx.c
+    third_party/xnu/bsd/netinet6/in6_src.c
+    third_party/xnu/bsd/netinet6/ipsec.c
+    third_party/xnu/bsd/netinet6/ip6_forward.c
+    third_party/xnu/bsd/netinet6/ip6_input.c
+    third_party/xnu/bsd/netinet6/ip6_id.c
+    third_party/xnu/bsd/netinet6/ip6_output.c
+    third_party/xnu/bsd/netinet6/mld6.c
+    third_party/xnu/bsd/netinet6/nd6.c
+    third_party/xnu/bsd/netinet6/nd6_nbr.c
+    third_party/xnu/bsd/netinet6/nd6_prproxy.c
+    third_party/xnu/bsd/netinet6/nd6_rti.c
+    third_party/xnu/bsd/netinet6/nd6_rtr.c
+    third_party/xnu/bsd/netinet6/nd6_send.c
+    third_party/xnu/bsd/netinet6/raw_ip6.c
+    third_party/xnu/bsd/netinet6/route6.c
+    third_party/xnu/bsd/netinet6/scope6.c
+    third_party/xnu/bsd/netinet6/udp6_output.c
+    third_party/xnu/bsd/netinet6/udp6_usrreq.c
+    third_party/xnu/bsd/netkey/key.c
+    third_party/xnu/bsd/netkey/keydb.c
+    third_party/xnu/bsd/netkey/keysock.c
+    third_party/xnu/bsd/sys/mcache.h
+    third_party/xnu/libkern/crypto/corecrypto_chacha20poly1305.c
+    third_party/xnu/libkern/crypto/corecrypto_des.c
+    third_party/xnu/libkern/crypto/corecrypto_sha2.c
+    third_party/xnu/libkern/gen/OSAtomicOperations.c
+    third_party/xnu/security/mac_system.c
     fuzz/api/syscall_wrappers.c
     fuzz/api/ioctl.c
     fuzz/api/backend.c
@@ -492,42 +489,47 @@ set(XNU_SOURCES
 
 set(XNU_INCLUDES
     .
-    BUILD/obj/EXPORT_HDRS/bsd
-    BUILD/obj/EXPORT_HDRS/osfmk
-    BUILD/obj/EXPORT_HDRS/libkern
-    BUILD/obj/EXPORT_HDRS/iokit
-    BUILD/obj/EXPORT_HDRS/pexpert
-    BUILD/obj/EXPORT_HDRS/libsa
-    BUILD/obj/EXPORT_HDRS/security
-    BUILD/obj/EXPORT_HDRS/san
-    EXTERNAL_HEADERS
+    third_party/xnu
+    third_party/xnu/BUILD/obj/EXPORT_HDRS/bsd
+    third_party/xnu/BUILD/obj/EXPORT_HDRS/osfmk
+    third_party/xnu/BUILD/obj/EXPORT_HDRS/libkern
+    third_party/xnu/BUILD/obj/EXPORT_HDRS/iokit
+    third_party/xnu/BUILD/obj/EXPORT_HDRS/pexpert
+    third_party/xnu/BUILD/obj/EXPORT_HDRS/libsa
+    third_party/xnu/BUILD/obj/EXPORT_HDRS/security
+    third_party/xnu/BUILD/obj/EXPORT_HDRS/san
+    third_party/xnu/EXTERNAL_HEADERS
 )
 
 # If SANITIZER flag is passed, we are building for OSS-Fuzz. This means we
 # already pass the build CFLAGs/LDFLAGS it wants via the environment variables.
 if(DEFINED ENV{SANITIZER})
   if($ENV{SANITIZER} MATCHES "address")
-    set(FUZZER_SOURCES fuzz/fakes/san.c san/kasan-memintrinsics.c)
+    set(FUZZER_SOURCES fuzz/fakes/san.c
+                       third_party/xnu/san/kasan-memintrinsics.c
+    )
     set(FUZZER_DEFINES -DKASAN)
   endif()
 else()
   set(FUZZER_CXX_FLAGS -fsanitize=address,fuzzer-no-link)
   set(FUZZER_LD_FLAGS -fsanitize=address)
-  set(FUZZER_SOURCES fuzz/fakes/san.c san/kasan-memintrinsics.c)
+  set(FUZZER_SOURCES fuzz/fakes/san.c third_party/xnu/san/kasan-memintrinsics.c)
   set(FUZZER_DEFINES -DKASAN)
 endif()
 
 # These must be built separately due to header incompatabilities
-set(OSFMK_SOURCES
-    fuzz/fakes/zalloc.c
-    fuzz/fakes/osfmk_stubs.c
-    # osfmk/x86_64/loose_ends.c
+set(OSFMK_SOURCES fuzz/fakes/zalloc.c fuzz/fakes/osfmk_stubs.c
+                  # osfmk/x86_64/loose_ends.c
 )
 
-set(BSD_INCLUDES ${XNU_INCLUDES} BUILD/obj/DEBUG_X86_64/bsd/DEBUG bsd san)
+set(BSD_INCLUDES
+    ${XNU_INCLUDES} third_party/xnu/BUILD/obj/DEBUG_X86_64/bsd/DEBUG
+    third_party/xnu/bsd third_party/xnu/san
+)
 
-set(OSFMK_INCLUDES ${XNU_INCLUDES} BUILD/obj/DEBUG_X86_64/osfmk/DEBUG osfmk
-                   osfmk/libsa
+set(OSFMK_INCLUDES
+    ${XNU_INCLUDES} third_party/xnu/BUILD/obj/DEBUG_X86_64/osfmk/DEBUG
+    third_party/xnu/osfmk third_party/xnu/osfmk/libsa
 )
 
 # We use an object library so we can include the osfmk objects which require
@@ -544,16 +546,16 @@ target_compile_options(
 add_library(xnu SHARED ${XNU_SOURCES} ${FUZZER_SOURCES} $<TARGET_OBJECTS:osfmk>)
 
 if(APPLE)
-  # Dynamic lookups are needed for us to link correctly when we have
-  # mutually dependent targets (net_fuzzer and xnu)
+  # Dynamic lookups are needed for us to link correctly when we have mutually
+  # dependent targets (net_fuzzer and xnu)
   target_link_options(xnu PRIVATE -undefined dynamic_lookup)
 endif(APPLE)
 
 target_include_directories(xnu PRIVATE ${BSD_INCLUDES})
 set_target_properties(xnu PROPERTIES C_VISIBILITY_PRESET hidden)
 target_compile_options(
-  xnu PRIVATE ${XNU_C_FLAGS} ${BSD_DEFINES} ${SAN_DEFINES} -DLIBXNU_BUILD=1 ${FUZZER_DEFINES}
-              ${FUZZER_CXX_FLAGS}
+  xnu PRIVATE ${XNU_C_FLAGS} ${BSD_DEFINES} ${SAN_DEFINES} -DLIBXNU_BUILD=1
+              ${FUZZER_DEFINES} ${FUZZER_CXX_FLAGS}
 )
 
 # Only build coverage builds locally on Linux.
@@ -563,9 +565,8 @@ if(NOT DEFINED ENV{SANITIZER} AND NOT APPLE)
   # set_target_properties(osfmk-cov PROPERTIES C_VISIBILITY_PRESET hidden)
   set_property(TARGET osfmk-cov PROPERTY POSITION_INDEPENDENT_CODE ON)
   target_compile_options(
-    osfmk-cov
-    PRIVATE ${XNU_C_FLAGS} ${OSFMK_DEFINES} -DLIBXNU_BUILD=1
-            -fprofile-instr-generate -fcoverage-mapping
+    osfmk-cov PRIVATE ${XNU_C_FLAGS} ${OSFMK_DEFINES} -DLIBXNU_BUILD=1
+                      -fprofile-instr-generate -fcoverage-mapping
   )
 
   add_library(xnu-cov SHARED ${XNU_SOURCES} $<TARGET_OBJECTS:osfmk-cov>)
