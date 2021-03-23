@@ -2031,7 +2031,7 @@ fg_insertuipc_mark(struct fileglob * fg)
 		msleep(&fg->fg_lflags, &fg->fg_lock, 0, "fg_insertuipc", NULL);
 	}
 
-	os_ref_retain_locked_raw(&fg->fg_count, &f_refgrp);
+	os_ref_retain_raw(&fg->fg_count, &f_refgrp);
 	fg->fg_msgcount++;
 	if (fg->fg_msgcount == 1) {
 		fg->fg_lflags |= FG_INSMSGQ;
@@ -2295,7 +2295,7 @@ unp_internalize(struct mbuf *control, proc_t p)
 		} else if (!fg_sendable(tmpfp->fp_glob)) {
 			proc_fdunlock(p);
 			return EINVAL;
-		} else if (FP_ISGUARDED(tmpfp, GUARD_SOCKET_IPC)) {
+		} else if (fp_isguarded(tmpfp, GUARD_SOCKET_IPC)) {
 			error = fp_guard_exception(p,
 			    fds[i], tmpfp, kGUARD_EXC_SOCKET_IPC);
 			proc_fdunlock(p);

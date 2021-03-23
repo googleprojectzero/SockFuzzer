@@ -151,7 +151,6 @@ options		CONFIG_AUDIT
 options		CONFIG_ARCADE
 options		CONFIG_SETUID
 options		CONFIG_KAS_INFO
-options		CONFIG_ZALLOC_SEQUESTER
 options		MACH_ASSERT
 options		MACH_DEBUG
 options		MACH_IPC_DEBUG

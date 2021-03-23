@@ -55,6 +55,9 @@
 #define KERNEL_INTEGRITY_WT                  1
 #endif
 
+#if defined(CPU_HAS_APPLE_PAC) && defined(__arm64e__)
+#define HAS_APPLE_PAC                        1 /* Has Apple ARMv8.3a pointer authentication */
+#endif
 
 #include <pexpert/arm64/apple_arm64_regs.h>
 #include <pexpert/arm64/AIC.h>

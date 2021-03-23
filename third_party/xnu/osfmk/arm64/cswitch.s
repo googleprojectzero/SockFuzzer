@@ -28,7 +28,6 @@
 #include <machine/asm.h>
 #include <arm64/machine_machdep.h>
 #include <arm64/machine_routines_asm.h>
-#include <arm64/pac_asm.h>
 #include <arm64/proc_reg.h>
 #include "assym.s"
 
@@ -195,38 +194,20 @@
 	ldr		\cpudatap, [\thread, ACT_CPUDATAP]
 #endif /* defined(__ARM_ARCH_8_5__) || defined(HAS_APPLE_PAC) */
 
+#if defined(__ARM_ARCH_8_5__)
+	ldrb	\wsync, [\cpudatap, CPU_SYNC_ON_CSWITCH]
+#else /* defined(__ARM_ARCH_8_5__) */
 	mov		\wsync, #0
+#endif
 
 
-#if defined(HAS_APPLE_PAC)
-	ldr		\new_key, [\thread, TH_ROP_PID]
-	ldr		\tmp_key, [\cpudatap, CPU_ROP_KEY]
-	cmp		\new_key, \tmp_key
-	b.eq	1f
-	str		\new_key, [\cpudatap, CPU_ROP_KEY]
-	msr		APIBKeyLo_EL1, \new_key
-	add		\new_key, \new_key, #1
-	msr		APIBKeyHi_EL1, \new_key
-	add		\new_key, \new_key, #1
-	msr		APDBKeyLo_EL1, \new_key
-	add		\new_key, \new_key, #1
-	msr		APDBKeyHi_EL1, \new_key
-	mov		\wsync, #1
-1:
-
-#if HAS_PAC_FAST_A_KEY_SWITCHING
-	IF_PAC_SLOW_A_KEY_SWITCHING	Lskip_jop_keys_\@, \new_key
-	ldr		\new_key, [\thread, TH_JOP_PID]
-	REPROGRAM_JOP_KEYS	Lskip_jop_keys_\@, \new_key, \cpudatap, \tmp_key
-	mov		\wsync, #1
-Lskip_jop_keys_\@:
-#endif /* HAS_PAC_FAST_A_KEY_SWITCHING */
-
-#endif /* defined(HAS_APPLE_PAC) */
 
 	cbz		\wsync, 1f
 	isb 	sy
 
+#if defined(__ARM_ARCH_8_5__)
+	strb	wzr, [\cpudatap, CPU_SYNC_ON_CSWITCH]
+#endif
 1:
 .endmacro
 

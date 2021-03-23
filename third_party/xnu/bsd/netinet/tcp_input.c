@@ -579,6 +579,21 @@ tcp_reass(struct tcpcb *tp, struct tcphdr *th, int *tlenp, struct mbuf *m,
 	}
 #endif /* TRAFFIC_MGT */
 
+	if (th->th_seq != tp->rcv_nxt) {
+		struct mbuf *tmp = m;
+		while (tmp != NULL) {
+			if (mbuf_class_under_pressure(tmp)) {
+				m_freem(m);
+				tcp_reass_overflows++;
+				tcpstat.tcps_rcvmemdrop++;
+				*tlenp = 0;
+				return 0;
+			}
+
+			tmp = tmp->m_next;
+		}
+	}
+
 	/*
 	 * Limit the number of segments in the reassembly queue to prevent
 	 * holding on to too many segments (and thus running out of mbufs).
@@ -3258,7 +3273,7 @@ findpcb:
 		    inp->in6p_flags & IN6P_AUTOFLOWLABEL) {
 			inp->inp_flow &= ~IPV6_FLOWLABEL_MASK;
 			inp->inp_flow |=
-			    (htonl(inp->inp_flowhash) & IPV6_FLOWLABEL_MASK);
+			    (htonl(ip6_randomflowlabel()) & IPV6_FLOWLABEL_MASK);
 		}
 
 		/* reset the incomp processing flag */

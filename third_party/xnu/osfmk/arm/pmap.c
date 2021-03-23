@@ -662,6 +662,14 @@ int pmap_stats_assert = 1;
 #endif /* DEVELOPMENT || DEBUG */
 
 
+#ifdef PLATFORM_BridgeOS
+static struct pmap_legacy_trust_cache *pmap_legacy_trust_caches MARK_AS_PMAP_DATA = NULL;
+#endif
+static struct pmap_image4_trust_cache *pmap_image4_trust_caches MARK_AS_PMAP_DATA = NULL;
+
+MARK_AS_PMAP_DATA SIMPLE_LOCK_DECLARE(pmap_loaded_trust_caches_lock, 0);
+
+
 /*
  * Represents a tlb range that will be flushed before exiting
  * the ppl.
@@ -683,12 +691,6 @@ extern vm_offset_t   segPPLDATAB;
 extern unsigned long segSizePPLDATA;
 extern vm_offset_t   segPPLTEXTB;
 extern unsigned long segSizePPLTEXT;
-#if __APRR_SUPPORTED__
-extern vm_offset_t   segPPLTRAMPB;
-extern unsigned long segSizePPLTRAMP;
-extern void ppl_trampoline_start;
-extern void ppl_trampoline_end;
-#endif
 extern vm_offset_t   segPPLDATACONSTB;
 extern unsigned long segSizePPLDATACONST;
 
@@ -1115,8 +1117,12 @@ SECURITY_READ_ONLY_LATE(boolean_t)      pmap_initialized = FALSE;       /* Has p
 
 SECURITY_READ_ONLY_LATE(vm_map_offset_t) arm_pmap_max_offset_default  = 0x0;
 #if defined(__arm64__)
+#  ifdef XNU_TARGET_OS_OSX
+SECURITY_READ_ONLY_LATE(vm_map_offset_t) arm64_pmap_max_offset_default = MACH_VM_MAX_ADDRESS;
+#  else
 SECURITY_READ_ONLY_LATE(vm_map_offset_t) arm64_pmap_max_offset_default = 0x0;
-#endif
+#  endif
+#endif /* __arm64__ */
 
 #if PMAP_PANIC_DEV_WIMG_ON_MANAGED && (DEVELOPMENT || DEBUG)
 SECURITY_READ_ONLY_LATE(boolean_t)   pmap_panic_dev_wimg_on_managed = TRUE;
@@ -1931,10 +1937,6 @@ static void pmap_unpin_kernel_pages(vm_offset_t kva, size_t nbytes);
 static void pmap_trim_self(pmap_t pmap);
 static void pmap_trim_subord(pmap_t subord);
 
-#if __APRR_SUPPORTED__
-static uint64_t pte_to_xprr_perm(pt_entry_t pte);
-static pt_entry_t xprr_perm_to_pte(uint64_t perm);
-#endif /* __APRR_SUPPORTED__*/
 
 /*
  * Temporary prototypes, while we wait for pmap_enter to move to taking an
@@ -2245,16 +2247,29 @@ PMAP_SUPPORT_PROTOTYPES(
 	addr64_t vstart,
 	uint64_t size), PMAP_TRIM_INDEX);
 
-#if HAS_APPLE_PAC && XNU_MONITOR
+#if HAS_APPLE_PAC
 PMAP_SUPPORT_PROTOTYPES(
 	void *,
 	pmap_sign_user_ptr, (void *value, ptrauth_key key, uint64_t discriminator, uint64_t jop_key), PMAP_SIGN_USER_PTR);
 PMAP_SUPPORT_PROTOTYPES(
 	void *,
 	pmap_auth_user_ptr, (void *value, ptrauth_key key, uint64_t discriminator, uint64_t jop_key), PMAP_AUTH_USER_PTR);
-#endif /* HAS_APPLE_PAC && XNU_MONITOR */
+#endif /* HAS_APPLE_PAC */
 
 
+
+
+PMAP_SUPPORT_PROTOTYPES(
+	bool,
+	pmap_is_trust_cache_loaded, (const uuid_t uuid), PMAP_IS_TRUST_CACHE_LOADED_INDEX);
+
+PMAP_SUPPORT_PROTOTYPES(
+	uint32_t,
+	pmap_lookup_in_static_trust_cache, (const uint8_t cdhash[CS_CDHASH_LEN]), PMAP_LOOKUP_IN_STATIC_TRUST_CACHE_INDEX);
+
+PMAP_SUPPORT_PROTOTYPES(
+	bool,
+	pmap_lookup_in_loaded_trust_caches, (const uint8_t cdhash[CS_CDHASH_LEN]), PMAP_LOOKUP_IN_LOADED_TRUST_CACHES_INDEX);
 
 
 #if XNU_MONITOR
@@ -2392,6 +2407,9 @@ const void * __ptrauth_ppl_handler const ppl_handler_table[PMAP_COUNT] = {
 	[PMAP_RELEASE_PAGES_TO_KERNEL_INDEX] = pmap_release_ppl_pages_to_kernel_internal,
 	[PMAP_SET_VM_MAP_CS_ENFORCED_INDEX] = pmap_set_vm_map_cs_enforced_internal,
 	[PMAP_SET_JIT_ENTITLED_INDEX] = pmap_set_jit_entitled_internal,
+	[PMAP_IS_TRUST_CACHE_LOADED_INDEX] = pmap_is_trust_cache_loaded_internal,
+	[PMAP_LOOKUP_IN_STATIC_TRUST_CACHE_INDEX] = pmap_lookup_in_static_trust_cache_internal,
+	[PMAP_LOOKUP_IN_LOADED_TRUST_CACHES_INDEX] = pmap_lookup_in_loaded_trust_caches_internal,
 	[PMAP_TRIM_INDEX] = pmap_trim_internal,
 	[PMAP_LEDGER_ALLOC_INIT_INDEX] = pmap_ledger_alloc_init_internal,
 	[PMAP_LEDGER_ALLOC_INDEX] = pmap_ledger_alloc_internal,
@@ -4066,111 +4084,9 @@ pmap_pte(
 
 #endif
 
-#if __APRR_SUPPORTED__
-/*
- * Indicates whether the given PTE has special restrictions due to the current
- * APRR settings.
- */
-static boolean_t
-is_pte_aprr_protected(pt_entry_t pte)
-{
-	uint64_t aprr_el0_value;
-	uint64_t aprr_el1_value;
-	uint64_t aprr_index;
-
-	MRS(aprr_el0_value, APRR_EL0);
-	MRS(aprr_el1_value, APRR_EL1);
-	aprr_index = PTE_TO_APRR_INDEX(pte);
-
-	/* Check to see if this mapping had APRR restrictions. */
-	if ((APRR_EXTRACT_IDX_ATTR(aprr_el0_value, aprr_index) != APRR_EXTRACT_IDX_ATTR(APRR_EL0_RESET, aprr_index)) ||
-	    (APRR_EXTRACT_IDX_ATTR(aprr_el1_value, aprr_index) != APRR_EXTRACT_IDX_ATTR(APRR_EL1_RESET, aprr_index))
-	    ) {
-		return TRUE;
-	}
-
-	return FALSE;
-}
-#endif /* __APRR_SUPPORTED__ */
 
 
-#if __APRR_SUPPORTED__
-static boolean_t
-is_pte_xprr_protected(pmap_t pmap __unused, pt_entry_t pte)
-{
-#if __APRR_SUPPORTED__
-	return is_pte_aprr_protected(pte);
-#else /* __APRR_SUPPORTED__ */
-#error "XPRR configuration error"
-#endif /* __APRR_SUPPORTED__ */
-}
-#endif /* __APRR_SUPPORTED__*/
 
-#if __APRR_SUPPORTED__
-static uint64_t
-__unused pte_to_xprr_perm(pt_entry_t pte)
-{
-#if   __APRR_SUPPORTED__
-	switch (PTE_TO_APRR_INDEX(pte)) {
-	case APRR_FIRM_RX_INDEX:  return XPRR_FIRM_RX_PERM;
-	case APRR_FIRM_RO_INDEX:  return XPRR_FIRM_RO_PERM;
-	case APRR_PPL_RW_INDEX:   return XPRR_PPL_RW_PERM;
-	case APRR_KERN_RW_INDEX:  return XPRR_KERN_RW_PERM;
-	case APRR_FIRM_RW_INDEX:  return XPRR_FIRM_RW_PERM;
-	case APRR_KERN0_RW_INDEX: return XPRR_KERN0_RW_PERM;
-	case APRR_USER_JIT_INDEX: return XPRR_USER_JIT_PERM;
-	case APRR_USER_RW_INDEX:  return XPRR_USER_RW_PERM;
-	case APRR_PPL_RX_INDEX:   return XPRR_PPL_RX_PERM;
-	case APRR_KERN_RX_INDEX:  return XPRR_KERN_RX_PERM;
-	case APRR_USER_XO_INDEX:  return XPRR_USER_XO_PERM;
-	case APRR_KERN_RO_INDEX:  return XPRR_KERN_RO_PERM;
-	case APRR_KERN0_RX_INDEX: return XPRR_KERN0_RO_PERM;
-	case APRR_KERN0_RO_INDEX: return XPRR_KERN0_RO_PERM;
-	case APRR_USER_RX_INDEX:  return XPRR_USER_RX_PERM;
-	case APRR_USER_RO_INDEX:  return XPRR_USER_RO_PERM;
-	default:                  return XPRR_MAX_PERM;
-	}
-#else
-#error "XPRR configuration error"
-#endif /**/
-}
-
-#if __APRR_SUPPORTED__
-static uint64_t
-xprr_perm_to_aprr_index(uint64_t perm)
-{
-	switch (perm) {
-	case XPRR_FIRM_RX_PERM:  return APRR_FIRM_RX_INDEX;
-	case XPRR_FIRM_RO_PERM:  return APRR_FIRM_RO_INDEX;
-	case XPRR_PPL_RW_PERM:   return APRR_PPL_RW_INDEX;
-	case XPRR_KERN_RW_PERM:  return APRR_KERN_RW_INDEX;
-	case XPRR_FIRM_RW_PERM:  return APRR_FIRM_RW_INDEX;
-	case XPRR_KERN0_RW_PERM: return APRR_KERN0_RW_INDEX;
-	case XPRR_USER_JIT_PERM: return APRR_USER_JIT_INDEX;
-	case XPRR_USER_RW_PERM:  return APRR_USER_RW_INDEX;
-	case XPRR_PPL_RX_PERM:   return APRR_PPL_RX_INDEX;
-	case XPRR_KERN_RX_PERM:  return APRR_KERN_RX_INDEX;
-	case XPRR_USER_XO_PERM:  return APRR_USER_XO_INDEX;
-	case XPRR_KERN_RO_PERM:  return APRR_KERN_RO_INDEX;
-	case XPRR_KERN0_RX_PERM: return APRR_KERN0_RO_INDEX;
-	case XPRR_KERN0_RO_PERM: return APRR_KERN0_RO_INDEX;
-	case XPRR_USER_RX_PERM:  return APRR_USER_RX_INDEX;
-	case XPRR_USER_RO_PERM:  return APRR_USER_RO_INDEX;
-	default:                 return APRR_MAX_INDEX;
-	}
-}
-#endif /* __APRR_SUPPORTED__ */
-
-static pt_entry_t
-__unused xprr_perm_to_pte(uint64_t perm)
-{
-#if   __APRR_SUPPORTED__
-	return APRR_INDEX_TO_PTE(xprr_perm_to_aprr_index(perm));
-#else
-#error "XPRR configuration error"
-#endif /**/
-}
-#endif /* __APRR_SUPPORTED__*/
 
 
 /*
@@ -4684,21 +4600,6 @@ pmap_bootstrap(
 	}
 #endif /* CONFIG_CSR_FROM_DT */
 
-#if __APRR_SUPPORTED__
-	if (((uintptr_t)(&ppl_trampoline_start)) % PAGE_SIZE) {
-		panic("%s: ppl_trampoline_start is not page aligned, "
-		    "vstart=%#lx",
-		    __FUNCTION__,
-		    vstart);
-	}
-
-	if (((uintptr_t)(&ppl_trampoline_end)) % PAGE_SIZE) {
-		panic("%s: ppl_trampoline_end is not page aligned, "
-		    "vstart=%#lx",
-		    __FUNCTION__,
-		    vstart);
-	}
-#endif /* __APRR_SUPPORTED__ */
 #endif /* XNU_MONITOR */
 
 #if DEVELOPMENT || DEBUG
@@ -5007,16 +4908,6 @@ pmap_static_allocations_done(void)
 	/* PPL text is RX for the PPL, RO for the kernel. */
 	pa_set_range_xprr_perm(monitor_start_pa, monitor_end_pa, XPRR_KERN_RX_PERM, XPRR_PPL_RX_PERM);
 
-#if __APRR_SUPPORTED__
-	monitor_start_pa = kvtophys(segPPLTRAMPB);
-	monitor_end_pa = monitor_start_pa + segSizePPLTRAMP;
-
-	/*
-	 * The PPLTRAMP pages will be a mix of PPL RX/kernel RO and
-	 * PPL RX/kernel RX.  However, all of these pages belong to the PPL.
-	 */
-	pa_set_range_monitor(monitor_start_pa, monitor_end_pa);
-#endif
 
 	/*
 	 * In order to support DTrace, the save areas for the PPL must be
@@ -5030,10 +4921,6 @@ pmap_static_allocations_done(void)
 		pmap_set_range_xprr_perm(monitor_start_va, monitor_end_va, XPRR_PPL_RW_PERM, XPRR_KERN_RW_PERM);
 	}
 
-#if __APRR_SUPPORTED__
-	/* The trampoline must also be specially protected. */
-	pmap_set_range_xprr_perm((vm_offset_t)&ppl_trampoline_start, (vm_offset_t)&ppl_trampoline_end, XPRR_KERN_RX_PERM, XPRR_PPL_RX_PERM);
-#endif
 
 	if (segSizePPLDATACONST > 0) {
 		monitor_start_pa = kvtophys(segPPLDATACONSTB);
@@ -5058,13 +4945,7 @@ pmap_lockdown_ppl(void)
 {
 	/* Mark the PPL as being locked down. */
 
-#if __APRR_SUPPORTED__
-	pmap_ppl_locked_down = TRUE;
-	/* Force a trap into to the PPL to update APRR_EL1. */
-	pmap_return(FALSE, FALSE);
-#else
 #error "XPRR configuration error"
-#endif /* __APRR_SUPPORTED__ */
 
 }
 #endif /* XNU_MONITOR */
@@ -6626,7 +6507,7 @@ pmap_remove_range_options(
 		pt_entry_t      spte;
 		boolean_t       managed = FALSE;
 
-		spte = *cpte;
+		spte = *((volatile pt_entry_t*)cpte);
 
 #if CONFIG_PGTRACE
 		if (pgtrace_enabled) {
@@ -6661,7 +6542,7 @@ pmap_remove_range_options(
 				if (OSAddAtomic16(-1, (SInt16 *) &(ptep_get_info(cpte)->refcnt)) <= 0) {
 					panic("pmap_remove_range_options: over-release of ptdp %p for pte %p", ptep_get_ptd(cpte), cpte);
 				}
-				spte = *cpte;
+				spte = *((volatile pt_entry_t*)cpte);
 			}
 			/*
 			 * It may be possible for the pte to transition from managed
@@ -6685,7 +6566,7 @@ pmap_remove_range_options(
 			}
 			pai = (int)pa_index(pa);
 			LOCK_PVH(pai);
-			spte = *cpte;
+			spte = *((volatile pt_entry_t*)cpte);
 			pa = pte_to_pa(spte);
 			if (pai == (int)pa_index(pa)) {
 				managed = TRUE;
@@ -7441,30 +7322,6 @@ pmap_page_protect_options_with_flush_range(
 				tmplate |= pt_attr_leaf_xn(pt_attr);
 			}
 
-#if __APRR_SUPPORTED__
-			/**
-			 * Enforce the policy that PPL xPRR mappings can't have their permissions changed after the fact.
-			 *
-			 * Certain userspace applications (e.g., CrashReporter and debuggers) have a need to remap JIT mappings to
-			 * RO/RX, so we explicitly allow that. This doesn't compromise the security of the PPL since this only
-			 * affects userspace mappings, so allow reducing permissions on JIT mappings to RO/RX. This is similar for
-			 * user execute-only mappings.
-			 */
-			if (__improbable(is_pte_xprr_protected(pmap, spte) && (pte_to_xprr_perm(spte) != XPRR_USER_JIT_PERM)
-			    && (pte_to_xprr_perm(spte) != XPRR_USER_XO_PERM))) {
-				panic("%s: modifying an xPRR mapping pte_p=%p pmap=%p prot=%d options=%u, pv_h=%p, pveh_p=%p, pve_p=%p, pte=0x%llx, tmplate=0x%llx, va=0x%llx ppnum: 0x%x",
-				    __func__, pte_p, pmap, prot, options, pv_h, pveh_p, pve_p, (uint64_t)spte, (uint64_t)tmplate, (uint64_t)va, ppnum);
-			}
-
-			/**
-			 * Enforce the policy that we can't create a new PPL protected mapping here except for user execute-only
-			 * mappings (which doesn't compromise the security of the PPL since it's userspace-specific).
-			 */
-			if (__improbable(is_pte_xprr_protected(pmap, tmplate) && (pte_to_xprr_perm(tmplate) != XPRR_USER_XO_PERM))) {
-				panic("%s: creating an xPRR mapping pte_p=%p pmap=%p prot=%d options=%u, pv_h=%p, pveh_p=%p, pve_p=%p, pte=0x%llx, tmplate=0x%llx, va=0x%llx ppnum: 0x%x",
-				    __func__, pte_p, pmap, prot, options, pv_h, pveh_p, pve_p, (uint64_t)spte, (uint64_t)tmplate, (uint64_t)va, ppnum);
-			}
-#endif /* __APRR_SUPPORTED__*/
 
 			if (*pte_p != ARM_PTE_TYPE_FAULT &&
 			    !ARM_PTE_IS_COMPRESSED(*pte_p, pte_p) &&
@@ -7584,6 +7441,7 @@ pmap_disable_user_jop_internal(pmap_t pmap)
 	if (pmap == kernel_pmap) {
 		panic("%s: called with kernel_pmap\n", __func__);
 	}
+	VALIDATE_PMAP(pmap);
 	pmap->disable_jop = true;
 }
 
@@ -7711,7 +7569,7 @@ pmap_protect_options_internal(
 			boolean_t  force_write = FALSE;
 #endif
 
-			spte = *pte_p;
+			spte = *((volatile pt_entry_t*)pte_p);
 
 			if ((spte == ARM_PTE_TYPE_FAULT) ||
 			    ARM_PTE_IS_COMPRESSED(spte, pte_p)) {
@@ -7735,7 +7593,7 @@ pmap_protect_options_internal(
 				}
 				pai = (int)pa_index(pa);
 				LOCK_PVH(pai);
-				spte = *pte_p;
+				spte = *((volatile pt_entry_t*)pte_p);
 				pa = pte_to_pa(spte);
 				if (pai == (int)pa_index(pa)) {
 					managed = TRUE;
@@ -7843,30 +7701,6 @@ pmap_protect_options_internal(
 			/* We do not expect to write fast fault the entry. */
 			pte_set_was_writeable(tmplate, false);
 
-#if __APRR_SUPPORTED__
-			/**
-			 * Enforce the policy that PPL xPRR mappings can't have their permissions changed after the fact.
-			 *
-			 * Certain userspace applications (e.g., CrashReporter and debuggers) have a need to remap JIT mappings to
-			 * RO/RX, so we explicitly allow that. This doesn't compromise the security of the PPL since this only
-			 * affects userspace mappings, so allow reducing permissions on JIT mappings to RO/RX/XO. This is similar
-			 * for user execute-only mappings.
-			 */
-			if (__improbable(is_pte_xprr_protected(pmap, spte) && (pte_to_xprr_perm(spte) != XPRR_USER_JIT_PERM)
-			    && (pte_to_xprr_perm(spte) != XPRR_USER_XO_PERM))) {
-				panic("%s: modifying a PPL mapping pte_p=%p pmap=%p prot=%d options=%u, pte=0x%llx, tmplate=0x%llx",
-				    __func__, pte_p, pmap, prot, options, (uint64_t)spte, (uint64_t)tmplate);
-			}
-
-			/**
-			 * Enforce the policy that we can't create a new PPL protected mapping here except for user execute-only
-			 * mappings (which doesn't compromise the security of the PPL since it's userspace-specific).
-			 */
-			if (__improbable(is_pte_xprr_protected(pmap, tmplate) && (pte_to_xprr_perm(tmplate) != XPRR_USER_XO_PERM))) {
-				panic("%s: creating an xPRR mapping pte_p=%p pmap=%p prot=%d options=%u, pte=0x%llx, tmplate=0x%llx",
-				    __func__, pte_p, pmap, prot, options, (uint64_t)spte, (uint64_t)tmplate);
-			}
-#endif /* __APRR_SUPPORTED__*/
 			WRITE_PTE_FAST(pte_p, tmplate);
 
 			if (managed) {
@@ -8806,14 +8640,28 @@ pmap_change_wiring_internal(
 	const pt_attr_t * pt_attr = pmap_get_pt_attr(pmap);
 
 	pte_p = pmap_pte(pmap, v);
-	assert(pte_p != PT_ENTRY_NULL);
-	pa = pte_to_pa(*pte_p);
+	if (pte_p == PT_ENTRY_NULL) {
+		if (!wired) {
+			/*
+			 * The PTE may have already been cleared by a disconnect/remove operation, and the L3 table
+			 * may have been freed by a remove operation.
+			 */
+			goto pmap_change_wiring_return;
+		} else {
+			panic("%s: Attempt to wire nonexistent PTE for pmap %p", __func__, pmap);
+		}
+	}
+	/*
+	 * Use volatile loads to prevent the compiler from collapsing references to 'pa' back to loads of pte_p
+	 * until we've grabbed the final PVH lock; PTE contents may change during this time.
+	 */
+	pa = pte_to_pa(*((volatile pt_entry_t*)pte_p));
 
 	while (pa_valid(pa)) {
 		pmap_paddr_t new_pa;
 
 		LOCK_PVH((int)pa_index(pa));
-		new_pa = pte_to_pa(*pte_p);
+		new_pa = pte_to_pa(*((volatile pt_entry_t*)pte_p));
 
 		if (pa == new_pa) {
 			break;
@@ -8823,6 +8671,18 @@ pmap_change_wiring_internal(
 		pa = new_pa;
 	}
 
+	/* PTE checks must be performed after acquiring the PVH lock (if applicable for the PA) */
+	if ((*pte_p == ARM_PTE_EMPTY) || (ARM_PTE_IS_COMPRESSED(*pte_p, pte_p))) {
+		if (!wired) {
+			/* PTE cleared by prior remove/disconnect operation */
+			goto pmap_change_wiring_cleanup;
+		} else {
+			panic("%s: Attempt to wire empty/compressed PTE %p (=0x%llx) for pmap %p",
+			    __func__, pte_p, (uint64_t)*pte_p, pmap);
+		}
+	}
+
+	assertf((*pte_p & ARM_PTE_TYPE_VALID) == ARM_PTE_TYPE, "invalid pte %p (=0x%llx)", pte_p, (uint64_t)*pte_p);
 	if (wired != pte_is_wired(*pte_p)) {
 		pte_set_wired(pmap, pte_p, wired);
 		if (pmap != kernel_pmap) {
@@ -8837,10 +8697,12 @@ pmap_change_wiring_internal(
 		}
 	}
 
+pmap_change_wiring_cleanup:
 	if (pa_valid(pa)) {
 		UNLOCK_PVH((int)pa_index(pa));
 	}
 
+pmap_change_wiring_return:
 	pmap_unlock(pmap);
 }
 
@@ -8952,12 +8814,7 @@ kvtophys(
 	if (pa) {
 		return pa;
 	}
-	pa = ((pmap_paddr_t)pmap_vtophys(kernel_pmap, va)) << PAGE_SHIFT;
-	if (pa) {
-		pa |= (va & PAGE_MASK);
-	}
-
-	return (pmap_paddr_t)pa;
+	return pmap_vtophys(kernel_pmap, va);
 }
 
 pmap_paddr_t
@@ -9573,7 +9430,7 @@ phys_attribute_clear_twig_internal(
 		end_pte_p = start_pte_p + ((end - start) >> pt_attr_leaf_shift(pt_attr));
 		assert(end_pte_p >= start_pte_p);
 		for (curr_pte_p = start_pte_p; curr_pte_p < end_pte_p; curr_pte_p++) {
-			pmap_paddr_t pa = pte_to_pa(*curr_pte_p);
+			pmap_paddr_t pa = pte_to_pa(*((volatile pt_entry_t*)curr_pte_p));
 			if (pa_valid(pa)) {
 				ppnum_t pn = (ppnum_t) atop(pa);
 				phys_attribute_clear_with_flush_range(pn, bits, options, NULL, flush_range);
@@ -10100,23 +9957,6 @@ pmap_switch_user_ttb_internal(
 		pmap_clear_user_ttb_internal();
 	}
 
-#if defined(HAS_APPLE_PAC) && (__APCFG_SUPPORTED__ || __APSTS_SUPPORTED__)
-	if (!arm_user_jop_disabled()) {
-		uint64_t sctlr = __builtin_arm_rsr64("SCTLR_EL1");
-		bool jop_enabled = sctlr & SCTLR_JOP_KEYS_ENABLED;
-		if (!jop_enabled && !pmap->disable_jop) {
-			// turn on JOP
-			sctlr |= SCTLR_JOP_KEYS_ENABLED;
-			__builtin_arm_wsr64("SCTLR_EL1", sctlr);
-			arm_context_switch_requires_sync();
-		} else if (jop_enabled && pmap->disable_jop) {
-			// turn off JOP
-			sctlr &= ~SCTLR_JOP_KEYS_ENABLED;
-			__builtin_arm_wsr64("SCTLR_EL1", sctlr);
-			arm_context_switch_requires_sync();
-		}
-	}
-#endif /* HAS_APPLE_PAC && (__APCFG_SUPPORTED__ || __APSTS_SUPPORTED__) */
 #endif /* (__ARM_VMSA__ == 7) */
 }
 
@@ -10602,7 +10442,7 @@ arm_fast_fault_internal(
 	ptep = pmap_pte(pmap, va);
 	if (ptep != PT_ENTRY_NULL) {
 		while (true) {
-			spte = *ptep;
+			spte = *((volatile pt_entry_t*)ptep);
 
 			pa = pte_to_pa(spte);
 
@@ -10623,42 +10463,13 @@ arm_fast_fault_internal(
 			}
 			pai = (int)pa_index(pa);
 			LOCK_PVH(pai);
-#if __APRR_SUPPORTED__
-			if (*ptep == spte) {
-				/*
-				 * Double-check the spte value, as we care
-				 * about the AF bit.
-				 */
-				break;
-			}
-			UNLOCK_PVH(pai);
-#else /* !(__APRR_SUPPORTED__*/
 			break;
-#endif /* !(__APRR_SUPPORTED__*/
 		}
 	} else {
 		pmap_unlock(pmap);
 		return result;
 	}
 
-#if __APRR_SUPPORTED__
-	/* Check to see if this mapping had APRR restrictions. */
-	if (is_pte_xprr_protected(pmap, spte)) {
-		/*
-		 * We have faulted on an XPRR managed mapping; decide if the access should be
-		 * reattempted or if it should cause an exception. Now that all JIT entitled
-		 * task threads always have MPRR enabled we're only here because of
-		 * an AF fault or an actual permission fault. AF faults will have result
-		 * changed to KERN_SUCCESS below upon arm_clear_fast_fault return.
-		 */
-		if (was_af_fault && (spte & ARM_PTE_AF)) {
-			result = KERN_SUCCESS;
-			goto out;
-		} else {
-			result = KERN_PROTECTION_FAILURE;
-		}
-	}
-#endif /* __APRR_SUPPORTED__*/
 
 	if ((IS_REFFAULT_PAGE(pai)) ||
 	    ((fault_type & VM_PROT_WRITE) && IS_MODFAULT_PAGE(pai))) {
@@ -10689,9 +10500,6 @@ arm_fast_fault_internal(
 		}
 	}
 
-#if __APRR_SUPPORTED__
-out:
-#endif /* __APRR_SUPPORTED__*/
 	UNLOCK_PVH(pai);
 	pmap_unlock(pmap);
 	return result;
@@ -10957,62 +10765,13 @@ pmap_unmap_cpu_windows_copy(
 
 #if XNU_MONITOR
 
-/*
- * The HMAC SHA driver needs to be able to operate on physical pages in
- * place without copying them out. This function provides an interface
- * to run a callback on a given page, making use of a CPU copy window
- * if necessary.
- *
- * This should only be used during the hibernation process since every DRAM page
- * will be mapped as VM_WIMG_DEFAULT. This can cause coherency issues if the pages
- * were originally mapped as VM_WIMG_IO/RT. In the hibernation case, by the time
- * we start copying memory all other agents shouldn't be writing to memory so we
- * can ignore these coherency issues. Regardless of this code, if other agents
- * were modifying memory during the image creation process, there would be
- * issues anyway.
- */
 MARK_AS_PMAP_TEXT void
 pmap_invoke_with_page(
 	ppnum_t page_number,
 	void *ctx,
 	void (*callback)(void *ctx, ppnum_t page_number, const void *page))
 {
-#if HIBERNATION
-	/* This function should only be used from within a hibernation context. */
-	assert((gIOHibernateState == kIOHibernateStateHibernating) ||
-	    (gIOHibernateState == kIOHibernateStateWakingFromHibernate));
-
-	/* from bcopy_phys_internal */
-	vm_offset_t src = ptoa_64(page_number);
-	vm_offset_t tmp_src;
-	bool use_copy_window_src = !pmap_valid_address(src);
-	unsigned int src_index;
-	if (use_copy_window_src) {
-		unsigned int wimg_bits_src = pmap_cache_attributes(page_number);
-
-		/**
-		 * Always map DRAM as VM_WIMG_DEFAULT (regardless of whether it's
-		 * kernel-managed) to denote that it's safe to use memcpy on it.
-		 */
-		if (is_dram_addr(src)) {
-			wimg_bits_src = VM_WIMG_DEFAULT;
-		}
-
-		src_index = pmap_map_cpu_windows_copy_internal(page_number, VM_PROT_READ, wimg_bits_src);
-		tmp_src = pmap_cpu_windows_copy_addr(pmap_get_cpu_data()->cpu_number, src_index);
-	} else {
-		vm_size_t count = PAGE_SIZE;
-		tmp_src = phystokv_range((pmap_paddr_t)src, &count);
-	}
-
-	callback(ctx, page_number, (const void *)tmp_src);
-
-	if (use_copy_window_src) {
-		pmap_unmap_cpu_windows_copy_internal(src_index);
-	}
-#else
 	#pragma unused(page_number, ctx, callback)
-#endif /* HIBERNATION */
 }
 
 /*
@@ -11465,7 +11224,7 @@ pmap_trim(
 #endif
 }
 
-#if HAS_APPLE_PAC && XNU_MONITOR
+#if HAS_APPLE_PAC
 static void *
 pmap_sign_user_ptr_internal(void *value, ptrauth_key key, uint64_t discriminator, uint64_t jop_key)
 {
@@ -11520,7 +11279,7 @@ pmap_auth_user_ptr(void *value, ptrauth_key key, uint64_t discriminator, uint64_
 {
 	return pmap_auth_user_ptr_internal(value, key, discriminator, jop_key);
 }
-#endif /* HAS_APPLE_PAC && XNU_MONITOR */
+#endif /* HAS_APPLE_PAC */
 
 /*
  *	kern_return_t pmap_nest(grand, subord, vstart, size)
@@ -11992,7 +11751,7 @@ pmap_unnest_options_internal(
 
 					if ((*cpte != ARM_PTE_TYPE_FAULT)
 					    && (!ARM_PTE_IS_COMPRESSED(*cpte, cpte))) {
-						spte = *cpte;
+						spte = *((volatile pt_entry_t*)cpte);
 						while (!managed) {
 							pa = pte_to_pa(spte);
 							if (!pa_valid(pa)) {
@@ -12000,7 +11759,7 @@ pmap_unnest_options_internal(
 							}
 							pai = (int)pa_index(pa);
 							LOCK_PVH(pai);
-							spte = *cpte;
+							spte = *((volatile pt_entry_t*)cpte);
 							pa = pte_to_pa(spte);
 							if (pai == (int)pa_index(pa)) {
 								managed = TRUE;
@@ -12682,10 +12441,6 @@ cache_skip_pve:
 		}
 	}
 	if (tlb_flush_needed) {
-		/* For targets that distinguish between mild and strong DSB, mild DSB
-		 * will not drain the prefetcher.  This can lead to prefetch-driven
-		 * cache fills that defeat the uncacheable requirement of the RT memory type.
-		 * In those cases, strong DSB must instead be employed to drain the prefetcher. */
 		pmap_sync_tlb((attributes & VM_WIMG_MASK) == VM_WIMG_RT);
 	}
 
@@ -14719,7 +14474,7 @@ pmap_query_page_info_internal(
 		goto done;
 	}
 
-	pa = pte_to_pa(*pte);
+	pa = pte_to_pa(*((volatile pt_entry_t*)pte));
 	if (pa == 0) {
 		if (ARM_PTE_IS_COMPRESSED(*pte, pte)) {
 			disp |= PMAP_QUERY_PAGE_COMPRESSED;
@@ -14792,6 +14547,161 @@ pmap_return(boolean_t do_panic, boolean_t do_recurse)
 }
 
 
+
+
+kern_return_t
+pmap_load_legacy_trust_cache(struct pmap_legacy_trust_cache __unused *trust_cache,
+    const vm_size_t __unused trust_cache_len)
+{
+	// Unsupported
+	return KERN_NOT_SUPPORTED;
+}
+
+pmap_tc_ret_t
+pmap_load_image4_trust_cache(struct pmap_image4_trust_cache __unused *trust_cache,
+    const vm_size_t __unused trust_cache_len,
+    uint8_t const * __unused img4_manifest,
+    const vm_size_t __unused img4_manifest_buffer_len,
+    const vm_size_t __unused img4_manifest_actual_len,
+    bool __unused dry_run)
+{
+	// Unsupported
+	return PMAP_TC_UNKNOWN_FORMAT;
+}
+
+bool
+pmap_in_ppl(void)
+{
+	// Unsupported
+	return false;
+}
+
+void
+pmap_lockdown_image4_slab(__unused vm_offset_t slab, __unused vm_size_t slab_len, __unused uint64_t flags)
+{
+	// Unsupported
+}
+
+void *
+pmap_claim_reserved_ppl_page(void)
+{
+	// Unsupported
+	return NULL;
+}
+
+void
+pmap_free_reserved_ppl_page(void __unused *kva)
+{
+	// Unsupported
+}
+
+
+MARK_AS_PMAP_TEXT static bool
+pmap_is_trust_cache_loaded_internal(const uuid_t uuid)
+{
+	bool found = false;
+
+	pmap_simple_lock(&pmap_loaded_trust_caches_lock);
+
+	for (struct pmap_image4_trust_cache const *c = pmap_image4_trust_caches; c != NULL; c = c->next) {
+		if (bcmp(uuid, c->module->uuid, sizeof(uuid_t)) == 0) {
+			found = true;
+			goto done;
+		}
+	}
+
+#ifdef PLATFORM_BridgeOS
+	for (struct pmap_legacy_trust_cache const *c = pmap_legacy_trust_caches; c != NULL; c = c->next) {
+		if (bcmp(uuid, c->uuid, sizeof(uuid_t)) == 0) {
+			found = true;
+			goto done;
+		}
+	}
+#endif
+
+done:
+	pmap_simple_unlock(&pmap_loaded_trust_caches_lock);
+	return found;
+}
+
+bool
+pmap_is_trust_cache_loaded(const uuid_t uuid)
+{
+#if XNU_MONITOR
+	return pmap_is_trust_cache_loaded_ppl(uuid);
+#else
+	return pmap_is_trust_cache_loaded_internal(uuid);
+#endif
+}
+
+MARK_AS_PMAP_TEXT static bool
+pmap_lookup_in_loaded_trust_caches_internal(const uint8_t cdhash[CS_CDHASH_LEN])
+{
+	struct pmap_image4_trust_cache const *cache = NULL;
+#ifdef PLATFORM_BridgeOS
+	struct pmap_legacy_trust_cache const *legacy = NULL;
+#endif
+
+	pmap_simple_lock(&pmap_loaded_trust_caches_lock);
+
+	for (cache = pmap_image4_trust_caches; cache != NULL; cache = cache->next) {
+		uint8_t hash_type = 0, flags = 0;
+
+		if (lookup_in_trust_cache_module(cache->module, cdhash, &hash_type, &flags)) {
+			goto done;
+		}
+	}
+
+#ifdef PLATFORM_BridgeOS
+	for (legacy = pmap_legacy_trust_caches; legacy != NULL; legacy = legacy->next) {
+		for (uint32_t i = 0; i < legacy->num_hashes; i++) {
+			if (bcmp(legacy->hashes[i], cdhash, CS_CDHASH_LEN) == 0) {
+				goto done;
+			}
+		}
+	}
+#endif
+
+done:
+	pmap_simple_unlock(&pmap_loaded_trust_caches_lock);
+
+	if (cache != NULL) {
+		return true;
+#ifdef PLATFORM_BridgeOS
+	} else if (legacy != NULL) {
+		return true;
+#endif
+	}
+
+	return false;
+}
+
+bool
+pmap_lookup_in_loaded_trust_caches(const uint8_t cdhash[CS_CDHASH_LEN])
+{
+#if XNU_MONITOR
+	return pmap_lookup_in_loaded_trust_caches_ppl(cdhash);
+#else
+	return pmap_lookup_in_loaded_trust_caches_internal(cdhash);
+#endif
+}
+
+MARK_AS_PMAP_TEXT static uint32_t
+pmap_lookup_in_static_trust_cache_internal(const uint8_t cdhash[CS_CDHASH_LEN])
+{
+	// Awkward indirection, because the PPL macros currently force their functions to be static.
+	return lookup_in_static_trust_cache(cdhash);
+}
+
+uint32_t
+pmap_lookup_in_static_trust_cache(const uint8_t cdhash[CS_CDHASH_LEN])
+{
+#if XNU_MONITOR
+	return pmap_lookup_in_static_trust_cache_ppl(cdhash);
+#else
+	return pmap_lookup_in_static_trust_cache_internal(cdhash);
+#endif
+}
 
 
 MARK_AS_PMAP_TEXT static void
@@ -15165,31 +15075,16 @@ pmap_test_test_config(unsigned int flags)
 	T_LOG("Validate that writes to our mapping do not fault.");
 	pmap_test_write(pmap, va_base, false);
 
-#if PMAP_CS
-	bool pmap_cs_enforced = pmap->pmap_cs_enforced;
-
-	T_LOG("Disable PMAP CS enforcement");
-	pmap_cs_configure_enforcement(pmap, false);
-#endif
 
 	T_LOG("Make the first mapping XO.");
 	pmap_enter_addr(pmap, va_base, pa, VM_PROT_EXECUTE, VM_PROT_EXECUTE, 0, false);
 
-#if __APRR_SUPPORTED__
-	T_LOG("Validate that reads to our mapping fault.");
-	pmap_test_read(pmap, va_base, true);
-#else
 	T_LOG("Validate that reads to our mapping do not fault.");
 	pmap_test_read(pmap, va_base, false);
-#endif
 
 	T_LOG("Validate that writes to our mapping fault.");
 	pmap_test_write(pmap, va_base, true);
 
-#if PMAP_CS
-	T_LOG("Set PMAP CS enforcement configuration to previous value.");
-	pmap_cs_configure_enforcement(pmap, pmap_cs_enforced);
-#endif
 
 	/*
 	 * For page ratios of greater than 1: validate that writes to the other
