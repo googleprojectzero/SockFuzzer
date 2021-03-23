@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -26,31 +26,45 @@
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 
-#include <sys/sysctl.h>
-#include <crypto/entropy/diag_entropy_sysctl.h>
-#include <prng/entropy.h>
+#include <pexpert/pexpert.h>
+#if __arm64__
+#include <pexpert/arm64/board_config.h>
+#endif /* __arm64__ */
 
-extern entropy_data_t EntropyData;
+#include <arm/cpuid_internal.h>
+#include <arm/pmap.h>
+#include <arm/proc_reg.h>
+#include <machine/machine_cpuid.h>
+#include <machine/machine_routines.h>
 
-static int
-sysctl_entropy_collect(__unused struct sysctl_oid *oidp, __unused void *arg1, __unused int arg2, struct sysctl_req *req)
-{
-	if (!req->oldptr || req->oldlen > EntropyData.buffer_size) {
-		return EINVAL;
-	}
-	return SYSCTL_OUT(req, EntropyData.buffer, req->oldlen);
-}
 
-SYSCTL_NODE(_kern, OID_AUTO, entropy, CTLFLAG_RD | CTLFLAG_MASKED | CTLFLAG_NOAUTO, 0, NULL);
-// Get current size of entropy buffer in bytes
-SYSCTL_UINT(_kern_entropy, OID_AUTO, entropy_buffer_size, CTLFLAG_RD | CTLFLAG_MASKED | CTLFLAG_NOAUTO, &EntropyData.buffer_size, 0, NULL);
-// Collect contents from entropy buffer
-SYSCTL_PROC(_kern_entropy, OID_AUTO, entropy_collect, CTLTYPE_OPAQUE | CTLFLAG_RD | CTLFLAG_MASKED | CTLFLAG_NOAUTO, NULL, 0, sysctl_entropy_collect, "-", NULL);
+#if __arm64__
+
+void configure_misc_apple_boot_args(void);
+void configure_misc_apple_regs(void);
 
 void
-register_entropy_sysctl(void)
+configure_misc_apple_boot_args(void)
 {
-	sysctl_register_oid(&sysctl__kern_entropy);
-	sysctl_register_oid(&sysctl__kern_entropy_entropy_buffer_size);
-	sysctl_register_oid(&sysctl__kern_entropy_entropy_collect);
 }
+
+void
+configure_misc_apple_regs(void)
+{
+}
+
+#endif /* __arm64__ */
+
+#if HAS_APPLE_PAC
+uint64_t
+ml_default_rop_pid(void)
+{
+	return 0;
+}
+
+uint64_t
+ml_default_jop_pid(void)
+{
+	return 0;
+}
+#endif /* HAS_APPLE_PAC */

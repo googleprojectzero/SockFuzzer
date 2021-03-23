@@ -1,5 +1,5 @@
 #
-# Copyright (C) 1999-2016 Apple Inc. All rights reserved.
+# Copyright (C) 1999-2020 Apple Inc. All rights reserved.
 #
 ifndef VERSDIR
 export VERSDIR := $(shell /bin/pwd)
@@ -30,6 +30,7 @@ export MakeInc_cmd=${VERSDIR}/makedefs/MakeInc.cmd
 export MakeInc_def=${VERSDIR}/makedefs/MakeInc.def
 export MakeInc_rule=${VERSDIR}/makedefs/MakeInc.rule
 export MakeInc_dir=${VERSDIR}/makedefs/MakeInc.dir
+
 
 #
 # Dispatch non-xnu build aliases to their own build
@@ -186,8 +187,7 @@ TOP_TARGETS = \
 	install install_desktop install_embedded \
 	install_release_embedded install_development_embedded \
 	install_kernels \
-	installopensource \
-	cscope tags TAGS checkstyle restyle check_uncrustify uncrustify \
+	cscope tags TAGS \
 	help
 
 DEFAULT_TARGET = all
@@ -316,6 +316,7 @@ xnu_tests:
 xnu_tests_driverkit:
 	$(MAKE) -C $(SRCROOT)/tests/driverkit $(if $(filter -j,$(MAKEFLAGS)),,$(MAKEJOBS)) \
 		SRCROOT=$(SRCROOT)/tests/driverkit
+
 
 #
 # The "analyze" target defined below invokes Clang Static Analyzer

@@ -708,6 +708,10 @@ kernel_bootstrap_thread(void)
 	sdt_early_init();
 #endif
 
+#ifndef BCM2837
+	kernel_bootstrap_log("trust_cache_init");
+	trust_cache_init();
+#endif
 
 	kernel_startup_initialize_upto(STARTUP_SUB_LOCKDOWN);
 
@@ -914,6 +918,7 @@ load_context(
 	    ((thread->state & TH_IDLE) || (thread->bound_processor != PROCESSOR_NULL)) ? TH_BUCKET_SCHED_MAX : thread->th_sched_bucket);
 	processor->current_is_bound = thread->bound_processor != PROCESSOR_NULL;
 	processor->current_is_NO_SMT = false;
+	processor->current_is_eagerpreempt = false;
 #if CONFIG_THREAD_GROUPS
 	processor->current_thread_group = thread_group_get(thread);
 #endif
@@ -928,6 +933,11 @@ load_context(
 	timer_start(&processor->system_state, processor->last_dispatch);
 	processor->current_state = &processor->system_state;
 
+#if __AMP__
+	if (processor->processor_set->pset_cluster_type == PSET_AMP_P) {
+		timer_start(&thread->ptime, processor->last_dispatch);
+	}
+#endif
 
 	cpu_quiescent_counter_join(processor->last_dispatch);
 

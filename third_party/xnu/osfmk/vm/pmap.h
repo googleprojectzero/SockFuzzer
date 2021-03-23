@@ -694,7 +694,11 @@ extern pmap_t   kernel_pmap;                    /* The kernel's map */
 #else
 
 #define PMAP_CREATE_STAGE2         0
+#if __arm64e__
+#define PMAP_CREATE_DISABLE_JOP    0x4
+#else
 #define PMAP_CREATE_DISABLE_JOP    0
+#endif
 #if __ARM_MIXED_PAGE_SIZE__
 #define PMAP_CREATE_FORCE_4K_PAGES 0x8
 #else
@@ -906,6 +910,8 @@ extern void pmap_free_reserved_ppl_page(void *kva);
 extern void pmap_ledger_alloc_init(size_t);
 extern ledger_t pmap_ledger_alloc(void);
 extern void pmap_ledger_free(ledger_t);
+
+extern kern_return_t pmap_cs_allow_invalid(pmap_t pmap);
 
 #if __arm64__
 extern bool pmap_is_exotic(pmap_t pmap);
