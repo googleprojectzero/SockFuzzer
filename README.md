@@ -48,10 +48,9 @@ llvm-cov show -format=html -output-dir=report -instr-profile=default.profdata ne
 
 A macOS environment is needed to generate the new files. Unpack the new source tarball
 replacing third_party/xnu. Then run the following command, updating SDKROOT as needed.
-Then you can add BUILD/obj/EXPORT_HDRS and EXTERNAL_HEADERS, the needed generated folders,
-to the git repo. You'll also need to rebase any changes to the original XNU sources. In
-some cases, the outer CMakeLists.txt must also be updated to reflect new or deleted
-source paths.
+Then you can add BUILD/obj/EXPORT_HDRS to the git repo. You'll also need to rebase any
+changes to the original XNU sources. In some cases, the outer CMakeLists.txt must also
+be updated to reflect new or deleted source paths.
 
 I use an upstream branch to facilitate merging my patches with the upstream changes.
 
