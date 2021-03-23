@@ -1,1 +1,0 @@
-#define CONFIG_MACF_SOCKET 0

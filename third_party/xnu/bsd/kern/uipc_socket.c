@@ -1131,11 +1131,10 @@ so_acquire_accept_list(struct socket *head, struct socket *so)
 	if (so != NULL) {
 		socket_unlock(so, 0);
 	}
-	// TODO(nedwill): support threads so we can yield to so_incomp
-	/* while */ if (head->so_flags1 & SOF1_ACCEPT_LIST_HELD) {
+	while (head->so_flags1 & SOF1_ACCEPT_LIST_HELD) {
 		so_accept_list_waits += 1;
-		// msleep((caddr_t)&head->so_incomp, mutex_held,
-		//     PSOCK | PCATCH, __func__, NULL);
+		msleep((caddr_t)&head->so_incomp, mutex_held,
+		    PSOCK | PCATCH, __func__, NULL);
 	}
 	head->so_flags1 |= SOF1_ACCEPT_LIST_HELD;
 	if (so != NULL) {
@@ -1440,8 +1439,6 @@ again:
 				ts.tv_sec = (so->so_linger / 100);
 				ts.tv_nsec = (so->so_linger % 100) *
 				    NSEC_PER_USEC * 1000 * 10;
-				// nedwill: don't sleep, just break
-				break;
 				error = msleep((caddr_t)&so->so_timeo,
 				    mutex_held, PSOCK | PCATCH, "soclose", &ts);
 				if (error) {
@@ -2204,8 +2201,7 @@ sosend(struct socket *so, struct sockaddr *addr, struct uio *uio,
 	dontroute = (flags & MSG_DONTROUTE) &&
 	    (so->so_options & SO_DONTROUTE) == 0 &&
 	    (so->so_proto->pr_flags & PR_ATOMIC);
-	// nedwill: we don't support p_stats
-	// OSIncrementAtomicLong(&p->p_stats->p_ru.ru_msgsnd);
+	OSIncrementAtomicLong(&p->p_stats->p_ru.ru_msgsnd);
 
 	if (control != NULL) {
 		clen = control->m_len;
@@ -3453,8 +3449,6 @@ nooob:
 
 	free_list = NULL;
 	delayed_copy_len = 0;
-	// TODO(nedwill): support threads properly so we can avoid deadlock
-	int trys = 0;
 restart:
 #ifdef MORE_LOCKING_DEBUG
 	if (so->so_usecount <= 1) {
@@ -3485,7 +3479,7 @@ restart:
 	}
 
 	error = sblock(&so->so_rcv, SBLOCKWAIT(flags));
-	if (trys++ > 10 || error) {
+	if (error) {
 		socket_unlock(so, 1);
 		KERNEL_DEBUG(DBG_FNC_SORECEIVE | DBG_FUNC_END, error,
 		    0, 0, 0, 0);
@@ -3506,7 +3500,7 @@ restart:
 		 * end up with false positives during select() or poll()
 		 * which could put the application in a bad state.
 		 */
-		// SB_MB_CHECK(&so->so_rcv);
+		SB_MB_CHECK(&so->so_rcv);
 
 		if (so->so_error) {
 			if (m != NULL) {
@@ -3607,8 +3601,7 @@ restart:
 		goto restart;
 	}
 dontblock:
-	// nedwill: we don't support p_stats
-	// OSIncrementAtomicLong(&p->p_stats->p_ru.ru_msgrcv);
+	OSIncrementAtomicLong(&p->p_stats->p_ru.ru_msgrcv);
 	SBLASTRECORDCHK(&so->so_rcv, "soreceive 1");
 	SBLASTMBUFCHK(&so->so_rcv, "soreceive 1");
 	nextrecord = m->m_nextpkt;
@@ -3969,7 +3962,7 @@ dontblock:
 			} else if (nextrecord->m_nextpkt == NULL) {
 				so->so_rcv.sb_lastrecord = nextrecord;
 			}
-			// SB_MB_CHECK(&so->so_rcv);
+			SB_MB_CHECK(&so->so_rcv);
 		}
 		SBLASTRECORDCHK(&so->so_rcv, "soreceive 4");
 		SBLASTMBUFCHK(&so->so_rcv, "soreceive 4");

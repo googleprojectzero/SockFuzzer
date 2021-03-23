@@ -193,9 +193,6 @@ ah_algorithm_lookup(int idx)
 	  ah_hmac_sha2_512_result, };
 #endif /* AH_ALL_CRYPTO */
 
-	// nedwill: ah_none
-	return &ah_none;
-
 	switch (idx) {
 	case SADB_AALG_MD5HMAC:
 		return &hmac_md5;

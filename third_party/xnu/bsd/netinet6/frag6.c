@@ -119,8 +119,8 @@ static void frag6_remque(struct ip6q *);
 static void frag6_purgef(struct ip6q *, struct fq6_head *, struct fq6_head *);
 static void frag6_freef(struct ip6q *, struct fq6_head *, struct fq6_head *);
 
-static int frag6_timeout_run;		/* frag6 timer is scheduled to run */
-void frag6_timeout(void *);
+static int frag6_timeout_run;           /* frag6 timer is scheduled to run */
+static void frag6_timeout(void *);
 static void frag6_sched_timeout(void);
 
 static struct ip6q *ip6q_alloc(int);
@@ -1055,7 +1055,7 @@ frag6_remque(struct ip6q *p6)
  * if a timer expires on a reassembly
  * queue, discard it.
  */
-void
+static void
 frag6_timeout(void *arg)
 {
 #pragma unused(arg)
@@ -1134,7 +1134,7 @@ frag6_sched_timeout(void)
 
 	if (!frag6_timeout_run && frag6_nfragpackets > 0) {
 		frag6_timeout_run = 1;
-		// timeout(frag6_timeout, NULL, hz);
+		timeout(frag6_timeout, NULL, hz);
 	}
 }
 

@@ -118,7 +118,6 @@
 #include <sys/kauth.h>
 #include <security/mac_framework.h>
 #include <net/ethernet.h>
-#include <net/if_vlan_var.h>
 #include <net/firewire.h>
 #endif
 
@@ -1819,13 +1818,13 @@ dlil_init(void)
 	 * scheduled and run at least once before we proceed
 	 */
 	lck_mtx_lock(&dlil_thread_sync_lock);
-	// while (dlil_pending_thread_cnt != 0) {
-	// 	DLIL_PRINTF("%s: Waiting for all the create dlil kernel "
-	// 	    "threads to get scheduled at least once.\n", __func__);
-	// 	(void) msleep(&dlil_pending_thread_cnt, &dlil_thread_sync_lock,
-	// 	    (PZERO - 1), __func__, NULL);
-	// 	LCK_MTX_ASSERT(&dlil_thread_sync_lock, LCK_ASSERT_OWNED);
-	// }
+	while (dlil_pending_thread_cnt != 0) {
+		DLIL_PRINTF("%s: Waiting for all the create dlil kernel "
+		    "threads to get scheduled at least once.\n", __func__);
+		(void) msleep(&dlil_pending_thread_cnt, &dlil_thread_sync_lock,
+		    (PZERO - 1), __func__, NULL);
+		LCK_MTX_ASSERT(&dlil_thread_sync_lock, LCK_ASSERT_OWNED);
+	}
 	lck_mtx_unlock(&dlil_thread_sync_lock);
 	DLIL_PRINTF("%s: All the created dlil kernel threads have been "
 	    "scheduled at least once. Proceeding.\n", __func__);
@@ -7431,14 +7430,14 @@ ifnet_attach(ifnet_t ifp, const struct sockaddr_dl *ll_addr)
 	 * to mark interface as attached.
 	 */
 	lck_mtx_lock(&ifp->if_ref_lock);
-	// while (ifp->if_threads_pending != 0) {
-	// 	DLIL_PRINTF("%s: Waiting for all kernel threads created for "
-	// 	    "interface %s to get scheduled at least once.\n",
-	// 	    __func__, ifp->if_xname);
-	// 	(void) msleep(&ifp->if_threads_pending, &ifp->if_ref_lock, (PZERO - 1),
-	// 	    __func__, NULL);
-	// 	LCK_MTX_ASSERT(&ifp->if_ref_lock, LCK_ASSERT_OWNED);
-	// }
+	while (ifp->if_threads_pending != 0) {
+		DLIL_PRINTF("%s: Waiting for all kernel threads created for "
+		    "interface %s to get scheduled at least once.\n",
+		    __func__, ifp->if_xname);
+		(void) msleep(&ifp->if_threads_pending, &ifp->if_ref_lock, (PZERO - 1),
+		    __func__, NULL);
+		LCK_MTX_ASSERT(&ifp->if_ref_lock, LCK_ASSERT_OWNED);
+	}
 	lck_mtx_unlock(&ifp->if_ref_lock);
 	DLIL_PRINTF("%s: All kernel threads created for interface %s have been scheduled "
 	    "at least once. Proceeding.\n", __func__, ifp->if_xname);
@@ -10430,9 +10429,9 @@ dlil_verify_sum16(void)
 				    len, i, sum, sumr);
 				/* NOTREACHED */
 			} else if (sum != sumr) {
-				// panic_plain("\n%s: broken m_sum16() for len=%d "
-				//     "align=%d sum=0x%04x [expected=0x%04x]\n",
-				//     __func__, len, i, sum, sumr);
+				panic_plain("\n%s: broken m_sum16() for len=%d "
+				    "align=%d sum=0x%04x [expected=0x%04x]\n",
+				    __func__, len, i, sum, sumr);
 				/* NOTREACHED */
 			}
 
@@ -10443,9 +10442,9 @@ dlil_verify_sum16(void)
 
 			/* Something is horribly broken; stop now */
 			if (sum != sumr) {
-				// panic_plain("\n%s: broken m_sum16() for len=%d "
-				//     "offset=%d sum=0x%04x [expected=0x%04x]\n",
-				//     __func__, len, i, sum, sumr);
+				panic_plain("\n%s: broken m_sum16() for len=%d "
+				    "offset=%d sum=0x%04x [expected=0x%04x]\n",
+				    __func__, len, i, sum, sumr);
 				/* NOTREACHED */
 			}
 #if INET
@@ -10454,9 +10453,9 @@ dlil_verify_sum16(void)
 
 			/* Something is horribly broken; stop now */
 			if (sum != sumr) {
-				// panic_plain("\n%s: broken b_sum16() for len=%d "
-				//     "align=%d sum=0x%04x [expected=0x%04x]\n",
-				//     __func__, len, i, sum, sumr);
+				panic_plain("\n%s: broken b_sum16() for len=%d "
+				    "align=%d sum=0x%04x [expected=0x%04x]\n",
+				    __func__, len, i, sum, sumr);
 				/* NOTREACHED */
 			}
 #endif /* INET */

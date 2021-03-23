@@ -130,7 +130,7 @@ static void pfdetach(void);
 #endif
 static int pfopen(dev_t, int, int, struct proc *);
 static int pfclose(dev_t, int, int, struct proc *);
-int pfioctl(dev_t, u_long, caddr_t, int, struct proc *);
+static int pfioctl(dev_t, u_long, caddr_t, int, struct proc *);
 static int pfioctl_ioc_table(u_long, struct pfioc_table_32 *,
     struct pfioc_table_64 *, struct proc *);
 static int pfioctl_ioc_tokens(u_long, struct pfioc_tokens_32 *,
@@ -1328,7 +1328,7 @@ pf_setup_pfsync_matching(struct pf_ruleset *rs)
 	MD5_CTX                  ctx;
 	struct pf_rule          *rule;
 	int                      rs_cnt;
-	u_int8_t                 digest[PF_MD5_DIGEST_LENGTH] = {};
+	u_int8_t                 digest[PF_MD5_DIGEST_LENGTH];
 
 	MD5Init(&ctx);
 	for (rs_cnt = 0; rs_cnt < PF_RULESET_MAX; rs_cnt++) {
@@ -1397,7 +1397,7 @@ pf_stop(void)
 	DPFPRINTF(PF_DEBUG_MISC, ("pf: stopped\n"));
 }
 
-int
+static int
 pfioctl(dev_t dev, u_long cmd, caddr_t addr, int flags, struct proc *p)
 {
 #pragma unused(dev)

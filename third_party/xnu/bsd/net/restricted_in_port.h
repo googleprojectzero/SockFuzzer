@@ -38,12 +38,10 @@
 #define PORT_FLAGS_PF       0x03
 #define PORT_FLAGS_MAX      0x03
 
-extern bool get_fuzzed_bool(void);
-
 /*
  * the port in network byte order
  */
-#define IS_RESTRICTED_IN_PORT(x) (get_fuzzed_bool())
+#define IS_RESTRICTED_IN_PORT(x) (bitmap_test(restricted_port_bitmap, ntohs((uint16_t)(x))))
 
 extern bitmap_t *restricted_port_bitmap;
 

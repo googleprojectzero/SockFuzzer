@@ -1260,7 +1260,7 @@ mptcp_usr_sosend(struct socket *mp_so, struct sockaddr *addr, struct uio *uio,
 		goto out;
 	}
 
-	// OSIncrementAtomicLong(&p->p_stats->p_ru.ru_msgsnd);
+	OSIncrementAtomicLong(&p->p_stats->p_ru.ru_msgsnd);
 
 	do {
 		error = sosendcheck(mp_so, NULL, resid, 0, 0, flags,

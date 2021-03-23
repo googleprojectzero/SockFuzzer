@@ -169,8 +169,8 @@ static int      sysctl_igmp_gsr SYSCTL_HANDLER_ARGS;
 static int      sysctl_igmp_default_version SYSCTL_HANDLER_ARGS;
 
 static int igmp_timeout_run;            /* IGMP timer is scheduled to run */
-void igmp_timeout(void *);
-void igmp_sched_timeout(void);
+static void igmp_timeout(void *);
+static void igmp_sched_timeout(void);
 
 static struct mbuf *m_raopt;            /* Router Alert option */
 
@@ -1882,7 +1882,7 @@ igmp_set_timeout(struct igmp_tparams *itp)
 		if (itp->sct != 0) {
 			state_change_timers_running = 1;
 		}
-		// igmp_sched_timeout();
+		igmp_sched_timeout();
 		IGMP_UNLOCK();
 	}
 }
@@ -1890,7 +1890,7 @@ igmp_set_timeout(struct igmp_tparams *itp)
 /*
  * IGMP timer handler (per 1 second).
  */
-void
+static void
 igmp_timeout(void *arg)
 {
 #pragma unused(arg)
@@ -2054,7 +2054,7 @@ out_locked:
 	IGMP_REMOVE_DETACHED_INM(&inm_dthead);
 }
 
-void
+static void
 igmp_sched_timeout(void)
 {
 	IGMP_LOCK_ASSERT_HELD();
@@ -2063,7 +2063,7 @@ igmp_sched_timeout(void)
 	    (querier_present_timers_running || current_state_timers_running ||
 	    interface_timers_running || state_change_timers_running)) {
 		igmp_timeout_run = 1;
-		// timeout(igmp_timeout, NULL, hz);
+		timeout(igmp_timeout, NULL, hz);
 	}
 }
 

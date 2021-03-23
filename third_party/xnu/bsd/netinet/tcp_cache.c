@@ -294,10 +294,8 @@ tcp_cache_hash(struct tcp_cache_key_src *tcks, struct tcp_cache_key *key)
 		    sizeof(struct in_addr));
 	}
 
-	// nedwill: net_flowhash is not supported
-	hash = 0;
-	// hash = net_flowhash(key, sizeof(struct tcp_cache_key),
-	//     tcp_cache_hash_seed);
+	hash = net_flowhash(key, sizeof(struct tcp_cache_key),
+	    tcp_cache_hash_seed);
 
 	return (uint16_t)(hash & (tcp_cache_size - 1));
 }
@@ -527,9 +525,8 @@ tcp_heuristics_hash(struct tcp_cache_key_src *tcks, struct tcp_heuristic_key *ke
 
 	tcp_cache_hash_src(tcks, key);
 
-	// nedwill: net_flowhash is not supported
-	// hash = net_flowhash(key, sizeof(struct tcp_heuristic_key),
-	//     tcp_cache_hash_seed);
+	hash = net_flowhash(key, sizeof(struct tcp_heuristic_key),
+	    tcp_cache_hash_seed);
 
 	return (uint16_t)(hash & (tcp_cache_size - 1));
 }

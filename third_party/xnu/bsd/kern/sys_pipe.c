@@ -284,9 +284,6 @@ SYSINIT(vfs, SI_SUB_VFS, SI_ORDER_ANY, pipeinit, NULL);
 static void
 pipe_touch(struct pipe *tpipe, int touch)
 {
-	// TODO(nedwill): support nanotime
-	return;
-
 	struct timespec now;
 
 	nanotime(&now);

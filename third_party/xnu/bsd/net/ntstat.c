@@ -3441,7 +3441,6 @@ nstat_sysinfo_send_data(
 static void
 nstat_sysinfo_generate_report(void)
 {
-	return;
 	mbuf_report_peak_usage();
 	tcp_report_stats();
 	nstat_ifnet_report_ecn_stats();
@@ -3749,7 +3748,7 @@ nstat_accumulate_msg(
 	return result;
 }
 
-void*
+static void*
 nstat_idle_check(
 	__unused thread_call_param_t p0,
 	__unused thread_call_param_t p1)
@@ -3785,11 +3784,10 @@ nstat_idle_check(
 		lck_mtx_unlock(&control->ncs_mtx);
 	}
 
-	// if (nstat_controls)
-	// {
-	// 	clock_interval_to_deadline(60, NSEC_PER_SEC, &nstat_idle_time);
-	// 	thread_call_func_delayed((thread_call_func_t)nstat_idle_check, NULL, nstat_idle_time);
-	// }
+	if (nstat_controls) {
+		clock_interval_to_deadline(60, NSEC_PER_SEC, &nstat_idle_time);
+		thread_call_func_delayed((thread_call_func_t)nstat_idle_check, NULL, nstat_idle_time);
+	}
 
 	lck_mtx_unlock(&nstat_mtx);
 
@@ -3891,11 +3889,10 @@ nstat_control_connect(
 	state->ncs_next = nstat_controls;
 	nstat_controls = state;
 
-	// if (nstat_idle_time == 0)
-	// {
-	// 	clock_interval_to_deadline(60, NSEC_PER_SEC, &nstat_idle_time);
-	// 	thread_call_func_delayed((thread_call_func_t)nstat_idle_check, NULL, nstat_idle_time);
-	// }
+	if (nstat_idle_time == 0) {
+		clock_interval_to_deadline(60, NSEC_PER_SEC, &nstat_idle_time);
+		thread_call_func_delayed((thread_call_func_t)nstat_idle_check, NULL, nstat_idle_time);
+	}
 
 	lck_mtx_unlock(&nstat_mtx);
 

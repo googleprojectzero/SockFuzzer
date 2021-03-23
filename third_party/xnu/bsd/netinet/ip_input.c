@@ -149,8 +149,8 @@ lck_mtx_t       *sadb_stat_mutex = &sadb_stat_mutex_data;
 
 MBUFQ_HEAD(fq_head);
 
-static int frag_timeout_run;		/* frag timer is scheduled to run */
-void frag_timeout(void *);
+static int frag_timeout_run;            /* frag timer is scheduled to run */
+static void frag_timeout(void *);
 static void frag_sched_timeout(void);
 
 static struct ipq *ipq_alloc(int);
@@ -643,12 +643,11 @@ inaddr_hashval(u_int32_t key)
 	 * the hash size, as documented in "Introduction to Algorithms"
 	 * (Cormen, Leiserson, Rivest).
 	 */
-	// nedwill: always 0
-	return 0;
-	if (inaddr_nhash > 1)
-		return ((key * inaddr_hashp) % inaddr_nhash);
-	else
-		return (0);
+	if (inaddr_nhash > 1) {
+		return (key * inaddr_hashp) % inaddr_nhash;
+	} else {
+		return 0;
+	}
 }
 
 __private_extern__ void
@@ -2655,7 +2654,7 @@ frag_freef(struct ipqhead *fhp, struct ipq *fp)
 /*
  * IP reassembly timer processing
  */
-void
+static void
 frag_timeout(void *arg)
 {
 #pragma unused(arg)
@@ -2710,7 +2709,7 @@ frag_sched_timeout(void)
 
 	if (!frag_timeout_run && nipq > 0) {
 		frag_timeout_run = 1;
-		// timeout(frag_timeout, NULL, hz);
+		timeout(frag_timeout, NULL, hz);
 	}
 }
 

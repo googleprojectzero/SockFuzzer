@@ -465,21 +465,17 @@ check_again:
 		error = EWOULDBLOCK;
 		goto out;
 	}
-	int trys = 0;
 	while (TAILQ_EMPTY(&head->so_comp) && head->so_error == 0) {
 		if (head->so_state & SS_CANTRCVMORE) {
 			head->so_error = ECONNABORTED;
-			break;
-		}
-		if (trys++ > 10) {
 			break;
 		}
 		if (head->so_usecount < 1) {
 			panic("accept: head=%p refcount=%d\n", head,
 			    head->so_usecount);
 		}
-		//error = msleep((caddr_t)&head->so_timeo, mutex_held,
-		//   PSOCK | PCATCH, "accept", 0);
+		error = msleep((caddr_t)&head->so_timeo, mutex_held,
+		    PSOCK | PCATCH, "accept", 0);
 		if (head->so_usecount < 1) {
 			panic("accept: 2 head=%p refcount=%d\n", head,
 			    head->so_usecount);
@@ -510,9 +506,6 @@ check_again:
 
 	so_acquire_accept_list(head, NULL);
 	if (TAILQ_EMPTY(&head->so_comp)) {
-		if (trys >= 10) {
-			goto out;
-		}
 		so_release_accept_list(head);
 		goto check_again;
 	}
@@ -973,10 +966,8 @@ connectit(struct socket *so, struct sockaddr *sa)
 		} else {
 			mutex_held = so->so_proto->pr_domain->dom_mtx;
 		}
-		// TODO(nedwill): pretend msleep failed until we support threads
-		error = 1;
-		// error = msleep((caddr_t)&so->so_timeo, mutex_held,
-		//     PSOCK | PCATCH, __func__, 0);
+		error = msleep((caddr_t)&so->so_timeo, mutex_held,
+		    PSOCK | PCATCH, __func__, 0);
 		if (so->so_state & SS_DRAINING) {
 			error = ECONNABORTED;
 		}
@@ -1049,11 +1040,8 @@ connectitx(struct socket *so, struct sockaddr *src,
 		} else {
 			mutex_held = so->so_proto->pr_domain->dom_mtx;
 		}
-		// nedwill: don't sleep
-		// error = msleep((caddr_t)&so->so_timeo, mutex_held,
-		//     PSOCK | PCATCH, __func__, 0);
-		// TODO(nedwill): support threaded soconnectxlocked
-		error = 1;
+		error = msleep((caddr_t)&so->so_timeo, mutex_held,
+		    PSOCK | PCATCH, __func__, 0);
 		if (so->so_state & SS_DRAINING) {
 			error = ECONNABORTED;
 		}
@@ -1310,11 +1298,10 @@ sendit(struct proc *p, struct socket *so, struct user_msghdr *mp, uio_t uiop,
 			error = 0;
 		}
 		/* Generation of SIGPIPE can be controlled per socket */
-		// nedwill: Don't send signal
-		// if (error == EPIPE && !(so->so_flags & SOF_NOSIGPIPE) &&
-		//     !(flags & MSG_NOSIGNAL)) {
-		// 	psignal(p, SIGPIPE);
-		// }
+		if (error == EPIPE && !(so->so_flags & SOF_NOSIGPIPE) &&
+		    !(flags & MSG_NOSIGNAL)) {
+			psignal(p, SIGPIPE);
+		}
 	}
 	if (error == 0) {
 		*retval = (int)(len - uio_resid(uiop));

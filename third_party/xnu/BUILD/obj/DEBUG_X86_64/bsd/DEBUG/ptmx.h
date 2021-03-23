@@ -1,1 +1,0 @@
-#define NPTMX 1

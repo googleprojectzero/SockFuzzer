@@ -1387,9 +1387,8 @@ tcp_connect(struct tcpcb *tp, struct sockaddr *nam, struct proc *p)
 		    (otp->t_flags & TF_RCVD_CC)) {
 			otp = tcp_close(otp);
 		} else {
-			// nedwill: silence noisy print
-			// printf("tcp_connect: inp=0x%llx err=EADDRINUSE\n",
-			//     (uint64_t)VM_KERNEL_ADDRPERM(inp));
+			printf("tcp_connect: inp=0x%llx err=EADDRINUSE\n",
+			    (uint64_t)VM_KERNEL_ADDRPERM(inp));
 			if (oinp != inp) {
 				socket_unlock(oinp->inp_socket, 1);
 			}

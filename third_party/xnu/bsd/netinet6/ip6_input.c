@@ -547,9 +547,9 @@ ip6_init_delayed(void)
 	(void) in6_ifattach_prelim(lo_ifp);
 
 	/* timer for regeneranation of temporary addresses randomize ID */
-	// timeout(in6_tmpaddrtimer, NULL,
-	//     (ip6_temp_preferred_lifetime - ip6_desync_factor -
-	//     ip6_temp_regen_advance) * hz);
+	timeout(in6_tmpaddrtimer, NULL,
+	    (ip6_temp_preferred_lifetime - ip6_desync_factor -
+	    ip6_temp_regen_advance) * hz);
 
 #if NSTF
 	stfattach();
