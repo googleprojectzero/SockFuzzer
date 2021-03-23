@@ -1,5 +1,8 @@
 .vscode
 __pycache__
 *.o
+*.cpo
+*.cpd
 *.d
+*.filelist
 /build
