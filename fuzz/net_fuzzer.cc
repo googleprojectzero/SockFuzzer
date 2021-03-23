@@ -202,7 +202,7 @@ std::string get_sockaddr(const SockAddr &sockaddr) {
           .sin_family =
               AF_INET,  // (unsigned char)sockaddr.sockaddr4().sin_family(),
           .sin_port = (unsigned short)sockaddr.sockaddr4().sin_port(),
-          .sin_addr = (unsigned int)sockaddr.sockaddr4().sin_addr(),
+          .sin_addr = {(unsigned int)sockaddr.sockaddr4().sin_addr()},
           .sin_zero = {},
       };
       dat = std::string((char *)&sai, (char *)&sai + sizeof(sai));

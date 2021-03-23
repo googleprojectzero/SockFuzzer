@@ -775,7 +775,7 @@ extern zone_t   zone_create_ext(
 // TODO(nedwill): modified this to make compatible with our fuzzer
 // A better way would be to actually support the startup infra for mach.
 #define ZONE_DECLARE(var, name, size, flags) \
-	SECURITY_READ_ONLY_LATE(zone_t) var; \
+	zone_t var; \
 	static_assert(((flags) & ZC_DESTRUCTIBLE) == 0); \
 	static __startup_data struct zone_create_startup_spec \
 	__startup_zone_spec_ ## var = { &var, name, size, flags, \
