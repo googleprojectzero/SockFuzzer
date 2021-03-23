@@ -177,6 +177,10 @@ ip_randomid(void)
 {
 	uint16_t new_id;
 
+	// TODO(nedwill): always increment for now, figure out
+	// if this nondeterminism causes problems for us
+	return (htons(ip_id++));
+
 	/*
 	 * If net.inet.ip.random_id is disabled, revert to incrementing ip_id.
 	 * Given that we don't allow the size of the array to change, accessing

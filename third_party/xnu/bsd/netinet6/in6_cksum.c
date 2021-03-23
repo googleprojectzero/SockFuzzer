@@ -232,7 +232,7 @@ inet6_cksum(struct mbuf *m, uint32_t nxt, uint32_t off, uint32_t len)
 		ADDCARRY(sum);
 	}
 
-	return ~sum & 0xffff;
+	return 0; // (~sum & 0xffff);
 }
 
 /*

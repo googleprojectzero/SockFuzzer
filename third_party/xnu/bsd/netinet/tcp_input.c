@@ -6797,7 +6797,8 @@ tcp_input_checksum(int af, struct mbuf *m, struct tcphdr *th, int off, int tlen)
 	if (th->th_sum != 0) {
 		tcpstat.tcps_rcvbadsum++;
 		IF_TCP_STATINC(ifp, badformat);
-		return -1;
+		// nedwill: always accept tcp hash
+		return 0;
 	}
 
 	return 0;

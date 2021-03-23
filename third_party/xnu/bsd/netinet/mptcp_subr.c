@@ -2116,7 +2116,8 @@ mptcp_subflow_soreceive(struct socket *so, struct sockaddr **psa,
 		}
 	}
 
-	OSIncrementAtomicLong(&p->p_stats->p_ru.ru_msgrcv);
+	// nedwill: we don't support p_stats
+	// OSIncrementAtomicLong(&p->p_stats->p_ru.ru_msgrcv);
 	SBLASTRECORDCHK(&so->so_rcv, "mptcp_subflow_soreceive 1");
 	SBLASTMBUFCHK(&so->so_rcv, "mptcp_subflow_soreceive 1");
 
@@ -2922,8 +2923,8 @@ mptcp_subflow_output(struct mptses *mpte, struct mptsub *mpts, int flags)
 
 	VERIFY(!INP_WAIT_FOR_IF_FEEDBACK(sotoinpcb(so)));
 	VERIFY((mpts->mpts_flags & MPTSF_MP_CAPABLE) ||
-	    (mpts->mpts_flags & MPTSF_MP_DEGRADED) ||
-	    (mpts->mpts_flags & MPTSF_TFO_REQD));
+	       (mpts->mpts_flags & MPTSF_MP_DEGRADED) ||
+	       (mpts->mpts_flags & MPTSF_TFO_REQD));
 	VERIFY(mptcp_subflow_cwnd_space(mpts->mpts_socket) > 0);
 
 	mptcplog((LOG_DEBUG, "%s mpts_flags %#x, mpte_flags %#x cwnd_space %u\n",

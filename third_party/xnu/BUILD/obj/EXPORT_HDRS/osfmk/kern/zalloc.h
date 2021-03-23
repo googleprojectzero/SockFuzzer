@@ -772,14 +772,15 @@ extern zone_t   zone_create_ext(
  * @param size          the size of the elements returned by this zone.
  * @param flags         a set of @c zone_create_flags_t flags.
  */
+// TODO(nedwill): modified this to make compatible with our fuzzer
+// A better way would be to actually support the startup infra for mach.
 #define ZONE_DECLARE(var, name, size, flags) \
 	SECURITY_READ_ONLY_LATE(zone_t) var; \
 	static_assert(((flags) & ZC_DESTRUCTIBLE) == 0); \
 	static __startup_data struct zone_create_startup_spec \
 	__startup_zone_spec_ ## var = { &var, name, size, flags, \
 	    ZONE_ID_ANY, NULL }; \
-	STARTUP_ARG(ZALLOC, STARTUP_RANK_MIDDLE, zone_create_startup, \
-	    &__startup_zone_spec_ ## var)
+	__attribute__((constructor)) void do_startup_ ## var() {zone_create_startup(&__startup_zone_spec_ ## var);}
 
 /*!
  * @macro ZONE_INIT
@@ -881,14 +882,14 @@ extern void     zcram(
  * Note: all values passed to zfree() might be in the element to be freed,
  *       temporaries must be taken, and the resetting to be done prior to free.
  */
-#define zfree(zone, elem) ({ \
-	_Static_assert(sizeof(elem) == sizeof(void *), "elem isn't pointer sized"); \
-	__auto_type __zfree_zone = (zone); \
-	__auto_type __zfree_eptr = &(elem); \
-	__auto_type __zfree_elem = *__zfree_eptr; \
-	*__zfree_eptr = (__typeof__(__zfree_elem))NULL; \
-	(zfree)(__zfree_zone, (void *)__zfree_elem); \
-})
+// #define zfree(zone, elem) ({ \
+// 	_Static_assert(sizeof(elem) == sizeof(void *), "elem isn't pointer sized"); \
+// 	__auto_type __zfree_zone = (zone); \
+// 	__auto_type __zfree_eptr = &(elem); \
+// 	__auto_type __zfree_elem = *__zfree_eptr; \
+// 	*__zfree_eptr = (__typeof__(__zfree_elem))NULL; \
+// 	(zfree)(__zfree_zone, (void *)__zfree_elem); \
+// })
 
 struct zone_create_startup_spec {
 	zone_t                 *z_var;

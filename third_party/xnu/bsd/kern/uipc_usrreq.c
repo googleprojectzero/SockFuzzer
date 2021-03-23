@@ -1052,11 +1052,14 @@ unp_bind(
 	struct sockaddr_un *soun = (struct sockaddr_un *)nam;
 	struct vnode *vp, *dvp;
 	struct vnode_attr va;
-	vfs_context_t ctx = vfs_context_current();
+	vfs_context_t ctx = NULL; // vfs_context_current();
 	int error, namelen;
 	struct nameidata nd;
 	struct socket *so = unp->unp_socket;
 	char buf[SOCK_MAXADDRLEN];
+
+	// TODO(nedwill): support vfs so we can bind on unp sockets
+	return EINVAL;
 
 	if (nam->sa_family != 0 && nam->sa_family != AF_UNIX) {
 		return EAFNOSUPPORT;
@@ -1193,7 +1196,7 @@ unp_connect(struct socket *so, struct sockaddr *nam, __unused proc_t p)
 	struct vnode *vp;
 	struct socket *so2, *so3, *list_so = NULL;
 	struct unpcb *unp, *unp2, *unp3;
-	vfs_context_t ctx = vfs_context_current();
+	// vfs_context_t ctx = vfs_context_current();
 	int error, len;
 	struct nameidata nd;
 	char buf[SOCK_MAXADDRLEN];
@@ -1221,10 +1224,13 @@ unp_connect(struct socket *so, struct sockaddr *nam, __unused proc_t p)
 	bcopy(soun->sun_path, buf, len);
 	buf[len] = 0;
 
+	// TODO(nedwill): need vfs support for namei to work below
+	return EINVAL;
+
 	socket_unlock(so, 0);
 
 	NDINIT(&nd, LOOKUP, OP_LOOKUP, FOLLOW | LOCKLEAF, UIO_SYSSPACE,
-	    CAST_USER_ADDR_T(buf), ctx);
+	    CAST_USER_ADDR_T(buf), NULL);
 	error = namei(&nd);
 	if (error) {
 		socket_lock(so, 0);
@@ -1239,14 +1245,14 @@ unp_connect(struct socket *so, struct sockaddr *nam, __unused proc_t p)
 	}
 
 #if CONFIG_MACF_SOCKET_SUBSET
-	error = mac_vnode_check_uipc_connect(ctx, vp, so);
+	error = mac_vnode_check_uipc_connect(NULL, vp, so);
 	if (error) {
 		socket_lock(so, 0);
 		goto out;
 	}
 #endif /* MAC_SOCKET_SUBSET */
 
-	error = vnode_authorize(vp, NULL, KAUTH_VNODE_WRITE_DATA, ctx);
+	error = vnode_authorize(vp, NULL, KAUTH_VNODE_WRITE_DATA, NULL);
 	if (error) {
 		socket_lock(so, 0);
 		goto out;
@@ -1335,7 +1341,7 @@ unp_connect(struct socket *so, struct sockaddr *nam, __unused proc_t p)
 		 * from its process structure at the time of connect()
 		 * (which is now).
 		 */
-		cru2x(vfs_context_ucred(ctx), &unp3->unp_peercred);
+		cru2x(vfs_context_ucred(NULL), &unp3->unp_peercred);
 		unp3->unp_flags |= UNP_HAVEPC;
 		/*
 		 * The receiver's (server's) credentials are copied
@@ -1470,10 +1476,10 @@ unp_connect2(struct socket *so, struct socket *so2)
 		/* This takes care of socketpair */
 		if (!(unp->unp_flags & UNP_HAVEPC) &&
 		    !(unp2->unp_flags & UNP_HAVEPC)) {
-			cru2x(kauth_cred_get(), &unp->unp_peercred);
+			// cru2x(kauth_cred_get(), &unp->unp_peercred);
 			unp->unp_flags |= UNP_HAVEPC;
 
-			cru2x(kauth_cred_get(), &unp2->unp_peercred);
+			// cru2x(kauth_cred_get(), &unp2->unp_peercred);
 			unp2->unp_flags |= UNP_HAVEPC;
 		}
 		unp2->unp_conn = unp;

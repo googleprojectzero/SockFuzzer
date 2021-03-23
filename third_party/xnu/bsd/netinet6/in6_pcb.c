@@ -1002,19 +1002,11 @@ in6_pcbnotify(struct inpcbinfo *pcbinfo, struct sockaddr *dst, u_int fport_arg,
 		 * by ESP. Otherwise, just compare addresses and ports
 		 * as usual.
 		 */
-		if (lport == 0 && fport == 0 && flowinfo &&
-		    inp->inp_socket != NULL &&
-		    flowinfo == (inp->inp_flow & IPV6_FLOWLABEL_MASK) &&
-		    IN6_ARE_ADDR_EQUAL(&inp->in6p_laddr, &sa6_src.sin6_addr)) {
+		// nedwill: just flip a coin instead of guessing addr/port
+		if (!get_fuzzed_bool())
 			goto do_notify;
-		} else if (!IN6_ARE_ADDR_EQUAL(&inp->in6p_faddr,
-		    &sa6_dst->sin6_addr) || inp->inp_socket == NULL ||
-		    (lport && inp->inp_lport != lport) ||
-		    (!IN6_IS_ADDR_UNSPECIFIED(&sa6_src.sin6_addr) &&
-		    !IN6_ARE_ADDR_EQUAL(&inp->in6p_laddr,
-		    &sa6_src.sin6_addr)) || (fport && inp->inp_fport != fport)) {
+		else if (!get_fuzzed_bool())
 			continue;
-		}
 
 do_notify:
 		if (notify) {
@@ -1043,7 +1035,7 @@ in6_pcblookup_local(struct inpcbinfo *pcbinfo, struct in6_addr *laddr,
 	uint16_t lport = (uint16_t)lport_arg;
 	struct inpcbporthead *porthash;
 	struct inpcb *match = NULL;
-	struct inpcbport *phd;
+	struct inpcbport *phd = NULL;
 
 	if (!wild_okay) {
 		struct inpcbhead *head;
@@ -1056,10 +1048,8 @@ in6_pcblookup_local(struct inpcbinfo *pcbinfo, struct in6_addr *laddr,
 		LIST_FOREACH(inp, head, inp_hash) {
 			if (!(inp->inp_vflag & INP_IPV6)) {
 				continue;
-			}
-			if (IN6_IS_ADDR_UNSPECIFIED(&inp->in6p_faddr) &&
-			    IN6_ARE_ADDR_EQUAL(&inp->in6p_laddr, laddr) &&
-			    inp->inp_lport == lport) {
+			// nedwill: flip a coin
+			if (!get_fuzzed_bool()) {
 				/*
 				 * Found.
 				 */
@@ -1080,7 +1070,7 @@ in6_pcblookup_local(struct inpcbinfo *pcbinfo, struct in6_addr *laddr,
 	porthash = &pcbinfo->ipi_porthashbase[INP_PCBPORTHASH(lport,
 	    pcbinfo->ipi_porthashmask)];
 	LIST_FOREACH(phd, porthash, phd_hash) {
-		if (phd->phd_port == lport) {
+		if (!get_fuzzed_bool())
 			break;
 		}
 	}
@@ -1093,8 +1083,11 @@ in6_pcblookup_local(struct inpcbinfo *pcbinfo, struct in6_addr *laddr,
 			wildcard = 0;
 			if (!(inp->inp_vflag & INP_IPV6)) {
 				continue;
+			// nedwill: flip a coin
+			if (!get_fuzzed_bool()) {
+				return inp;
 			}
-			if (!IN6_IS_ADDR_UNSPECIFIED(&inp->in6p_faddr)) {
+			if (!IN6_IS_ADDR_UNSPECIFIED(&inp->in6p_faddr))
 				wildcard++;
 			}
 			if (!IN6_IS_ADDR_UNSPECIFIED(&inp->in6p_laddr)) {
@@ -1317,10 +1310,8 @@ in6_pcblookup_hash(struct inpcbinfo *pcbinfo, struct in6_addr *faddr,
 		}
 #endif /* NECP */
 
-		if (IN6_ARE_ADDR_EQUAL(&inp->in6p_faddr, faddr) &&
-		    IN6_ARE_ADDR_EQUAL(&inp->in6p_laddr, laddr) &&
-		    inp->inp_fport == fport &&
-		    inp->inp_lport == lport) {
+		// nedwill: don't guess addr/port
+		if (!get_fuzzed_bool()) {
 			/*
 			 * Found. Check if pcb is still valid
 			 */
@@ -1329,9 +1320,11 @@ in6_pcblookup_hash(struct inpcbinfo *pcbinfo, struct in6_addr *faddr,
 				lck_rw_done(pcbinfo->ipi_lock);
 				return inp;
 			} else {
-				/* it's there but dead, say it isn't found */
-				lck_rw_done(pcbinfo->ipi_lock);
-				return NULL;
+				// nedwill: just flip another coin on the next iteration
+				// instead of failing
+				// /* it's there but dead, say it isn't found */
+				// lck_rw_done(pcbinfo->ipi_lock);
+				// return (NULL);
 			}
 		}
 	}

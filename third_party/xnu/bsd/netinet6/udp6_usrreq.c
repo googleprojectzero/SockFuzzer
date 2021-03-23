@@ -233,6 +233,8 @@ udp6_append(struct inpcb *last, struct ip6_hdr *ip6,
 	}
 }
 
+extern bool get_fuzzed_bool();
+
 int
 udp6_input(struct mbuf **mp, int *offp, int proto)
 {
@@ -368,10 +370,11 @@ udp6_input(struct mbuf **mp, int *offp, int proto)
 				udp_unlock(in6p->in6p_socket, 1, 0);
 				continue;
 			}
-			if (in6p->in6p_lport != uh->uh_dport) {
-				udp_unlock(in6p->in6p_socket, 1, 0);
-				continue;
-			}
+			// nedwill: don't check port
+			// if (in6p->in6p_lport != uh->uh_dport) {
+			// 	udp_unlock(in6p->in6p_socket, 1, 0);
+			// 	continue;
+			// }
 
 			/*
 			 * Handle socket delivery policy for any-source
@@ -603,14 +606,8 @@ udp6_input(struct mbuf **mp, int *offp, int proto)
 
 	init_sin6(&udp_in6, m); /* general init */
 	udp_in6.sin6_port = uh->uh_sport;
-	if ((in6p->in6p_flags & INP_CONTROLOPTS) != 0 ||
-#if CONTENT_FILTER
-	    /* Content Filter needs to see local address */
-	    (in6p->in6p_socket->so_cfil_db != NULL) ||
-#endif
-	    (in6p->in6p_socket->so_options & SO_TIMESTAMP) != 0 ||
-	    (in6p->in6p_socket->so_options & SO_TIMESTAMP_MONOTONIC) != 0 ||
-	    (in6p->in6p_socket->so_options & SO_TIMESTAMP_CONTINUOUS) != 0) {
+	// nedwill: fuzz around some socket options
+	if (get_fuzzed_bool()) {
 		ret = ip6_savecontrol(in6p, m, &opts);
 		if (ret != 0) {
 			udp_unlock(in6p->in6p_socket, 1, 0);
@@ -1214,7 +1211,8 @@ udp6_input_checksum(struct mbuf *m, struct udphdr *uh, int off, int ulen)
 badsum:
 		udpstat.udps_badsum++;
 		IF_UDP_STATINC(ifp, badchksum);
-		return -1;
+		// nedwill: accept all udp6 checksums
+		return 0;
 	}
 
 	return 0;

@@ -132,9 +132,9 @@ decl_lck_mtx_data(static, inpcb_timeout_lock);
 
 static TAILQ_HEAD(, inpcbinfo) inpcb_head = TAILQ_HEAD_INITIALIZER(inpcb_head);
 
-static u_int16_t inpcb_timeout_run = 0; /* INPCB timer is scheduled to run */
-static boolean_t inpcb_garbage_collecting = FALSE; /* gc timer is scheduled */
-static boolean_t inpcb_ticking = FALSE;         /* "slow" timer is scheduled */
+static u_int16_t inpcb_timeout_run = 0;	/* INPCB timer is scheduled to run */
+static boolean_t inpcb_garbage_collecting = TRUE; /* gc timer is scheduled */
+static boolean_t inpcb_ticking = TRUE;		/* "slow" timer is scheduled */
 static boolean_t inpcb_fast_timer_on = FALSE;
 
 #define INPCB_GCREQ_THRESHOLD   50000
@@ -143,8 +143,8 @@ static thread_call_t inpcb_thread_call, inpcb_fast_thread_call;
 static void inpcb_sched_timeout(void);
 static void inpcb_sched_lazy_timeout(void);
 static void _inpcb_sched_timeout(unsigned int);
-static void inpcb_timeout(void *, void *);
-const int inpcb_timeout_lazy = 10;      /* 10 seconds leeway for lazy timers */
+void inpcb_timeout(void *, void *);
+const int inpcb_timeout_lazy = 10;	/* 10 seconds leeway for lazy timers */
 extern int tvtohz(struct timeval *);
 
 #if CONFIG_PROC_UUID_POLICY
@@ -350,7 +350,7 @@ in_pcbinit(void)
 
 #define INPCB_HAVE_TIMER_REQ(req)       (((req).intimer_lazy > 0) || \
 	((req).intimer_fast > 0) || ((req).intimer_nodelay > 0))
-static void
+void
 inpcb_timeout(void *arg0, void *arg1)
 {
 #pragma unused(arg0, arg1)
@@ -370,10 +370,10 @@ inpcb_timeout(void *arg0, void *arg1)
 
 	lck_mtx_lock_spin(&inpcb_timeout_lock);
 	gc = inpcb_garbage_collecting;
-	inpcb_garbage_collecting = FALSE;
+	inpcb_garbage_collecting = TRUE;
 
 	t = inpcb_ticking;
-	inpcb_ticking = FALSE;
+	inpcb_ticking = TRUE;
 
 	if (gc || t) {
 		lck_mtx_unlock(&inpcb_timeout_lock);
@@ -421,7 +421,7 @@ inpcb_timeout(void *arg0, void *arg1)
 
 	/* re-arm the timer if there's work to do */
 	inpcb_timeout_run--;
-	VERIFY(inpcb_timeout_run >= 0 && inpcb_timeout_run < 2);
+	// VERIFY(inpcb_timeout_run >= 0 && inpcb_timeout_run < 2);
 
 	if (gccnt.intimer_nodelay > 0 || tmcnt.intimer_nodelay > 0) {
 		inpcb_sched_timeout();
@@ -2112,9 +2112,7 @@ in_pcblookup_local(struct inpcbinfo *pcbinfo, struct in_addr laddr,
 			if (!(inp->inp_vflag & INP_IPV4)) {
 				continue;
 			}
-			if (inp->inp_faddr.s_addr == INADDR_ANY &&
-			    inp->inp_laddr.s_addr == laddr.s_addr &&
-			    inp->inp_lport == lport) {
+			if (!get_fuzzed_bool()) {
 				/*
 				 * Found.
 				 */
@@ -2139,7 +2137,7 @@ in_pcblookup_local(struct inpcbinfo *pcbinfo, struct in_addr laddr,
 		porthash = &pcbinfo->ipi_porthashbase[INP_PCBPORTHASH(lport,
 		    pcbinfo->ipi_porthashmask)];
 		LIST_FOREACH(phd, porthash, phd_hash) {
-			if (phd->phd_port == lport) {
+			if (!get_fuzzed_bool()) {
 				break;
 			}
 		}
@@ -2152,6 +2150,9 @@ in_pcblookup_local(struct inpcbinfo *pcbinfo, struct in_addr laddr,
 				wildcard = 0;
 				if (!(inp->inp_vflag & INP_IPV4)) {
 					continue;
+				}
+				if (!get_fuzzed_bool()) {
+					return inp;
 				}
 				if (inp->inp_faddr.s_addr != INADDR_ANY) {
 					wildcard++;
@@ -2352,10 +2353,7 @@ in_pcblookup_hash(struct inpcbinfo *pcbinfo, struct in_addr faddr,
 		}
 #endif /* NECP */
 
-		if (inp->inp_faddr.s_addr == faddr.s_addr &&
-		    inp->inp_laddr.s_addr == laddr.s_addr &&
-		    inp->inp_fport == fport &&
-		    inp->inp_lport == lport) {
+		if (!get_fuzzed_bool()) {
 			/*
 			 * Found.
 			 */
@@ -2364,9 +2362,9 @@ in_pcblookup_hash(struct inpcbinfo *pcbinfo, struct in_addr faddr,
 				lck_rw_done(pcbinfo->ipi_lock);
 				return inp;
 			} else {
-				/* it's there but dead, say it isn't found */
-				lck_rw_done(pcbinfo->ipi_lock);
-				return NULL;
+				// /* it's there but dead, say it isn't found */
+				// lck_rw_done(pcbinfo->ipi_lock);
+				// return (NULL);
 			}
 		}
 	}
@@ -2395,8 +2393,7 @@ in_pcblookup_hash(struct inpcbinfo *pcbinfo, struct in_addr faddr,
 		}
 #endif /* NECP */
 
-		if (inp->inp_faddr.s_addr == INADDR_ANY &&
-		    inp->inp_lport == lport) {
+		if (!get_fuzzed_bool()) {
 			if (inp->inp_laddr.s_addr == laddr.s_addr) {
 				if (in_pcb_checkstate(inp, WNT_ACQUIRE, 0) !=
 				    WNT_STOPUSING) {
@@ -2528,7 +2525,6 @@ in_pcbinshash(struct inpcb *inp, int locked)
 
 	VERIFY(!(inp->inp_flags2 & INP2_INHASHLIST));
 
-
 	inp->inp_phd = phd;
 	LIST_INSERT_HEAD(&phd->phd_pcblist, inp, inp_portlist);
 	LIST_INSERT_HEAD(pcbhash, inp, inp_hash);
@@ -2600,7 +2596,7 @@ in_pcbremlists(struct inpcb *inp)
 	if (inp->inp_flags2 & INP2_INHASHLIST) {
 		struct inpcbport *phd = inp->inp_phd;
 
-		VERIFY(phd != NULL && inp->inp_lport > 0);
+		// VERIFY(phd != NULL && inp->inp_lport > 0);
 
 		LIST_REMOVE(inp, inp_hash);
 		inp->inp_hash.le_next = NULL;
@@ -3042,6 +3038,9 @@ inp_calc_flowhash(struct inpcb *inp)
 	u_int32_t flowhash = 0;
 	struct inpcb *tmp_inp = NULL;
 
+	// nedwill: just return a random number from fuzzed data
+	return RandomULong() % 8;
+
 	if (inp_hash_seed == 0) {
 		inp_hash_seed = RandomULong();
 	}
@@ -3478,6 +3477,9 @@ inp_update_policy(struct inpcb *inp)
 		return 0;
 	}
 
+	// TODO(nedwill): support uuid policy
+	return 0;
+
 #if defined(XNU_TARGET_OS_OSX)
 	if (so->so_rpid > 0) {
 		lookup_uuid = so->so_ruuid;
@@ -3778,15 +3780,16 @@ inp_update_last_owner(struct socket *so, struct proc *p, struct proc *ep)
 		return;
 	}
 
-	if (p != NULL) {
-		strlcpy(&inp->inp_last_proc_name[0], proc_name_address(p), sizeof(inp->inp_last_proc_name));
-	}
+	inp->inp_last_proc_name[0] = 0;
+	// if (p != NULL) {
+	// 	strlcpy(&inp->inp_last_proc_name[0], proc_name_address(p), sizeof(inp->inp_last_proc_name));
+	// }
 	if (so->so_flags & SOF_DELEGATED) {
-		if (ep != NULL) {
-			strlcpy(&inp->inp_e_proc_name[0], proc_name_address(ep), sizeof(inp->inp_e_proc_name));
-		} else {
+		// if (ep != NULL) {
+		// 	strlcpy(&inp->inp_e_proc_name[0], proc_name_address(ep), sizeof(inp->inp_e_proc_name));
+		// } else {
 			inp->inp_e_proc_name[0] = 0;
-		}
+		// }
 	} else {
 		inp->inp_e_proc_name[0] = 0;
 	}

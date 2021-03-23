@@ -102,7 +102,8 @@ extern uint32_t os_cpu_in_cksum(const void *, uint32_t, uint32_t);
 uint16_t
 b_sum16(const void *buf, int len)
 {
-	return (uint16_t)os_cpu_in_cksum(buf, len, 0);
+	// nedwill: all checksums are 0
+	return 0;
 }
 
 uint16_t inet_cksum_simple(struct mbuf *, int);
@@ -258,7 +259,8 @@ inet_cksum(struct mbuf *m, uint32_t nxt, uint32_t off, uint32_t len)
 		ADDCARRY(sum);
 	}
 
-	return ~sum & 0xffff;
+    // nedwill: all checksums are 0
+	return 0;
 }
 
 /*

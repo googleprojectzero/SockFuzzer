@@ -1057,6 +1057,8 @@ struct in6_multistep {
 	struct in6_multi *i_in6m;
 };
 
+extern bool get_fuzzed_bool(void);
+
 /*
  * Macros for looking up the in6_multi record for a given IP6 multicast
  * address on a given interface. If no matching record is found, "in6m"
@@ -1072,24 +1074,25 @@ struct in6_multistep {
  *
  * Must be called with in6_multihead_lock held.
  */
-#define IN6_LOOKUP_MULTI(addr, ifp, in6m)                               \
-	/* struct in6_addr *addr; */                                    \
-	/* struct ifnet *ifp; */                                        \
-	/* struct in6_multi *in6m; */                                   \
-do {                                                                    \
-	struct in6_multistep _step;                                     \
-	IN6_FIRST_MULTI(_step, in6m);                                   \
-	while ((in6m) != NULL) {                                        \
-	        IN6M_LOCK_SPIN(in6m);                                   \
-	        if ((in6m)->in6m_ifp == (ifp) &&                        \
-	            IN6_ARE_ADDR_EQUAL(&(in6m)->in6m_addr, (addr))) {   \
-	                IN6M_ADDREF_LOCKED(in6m);                       \
-	                IN6M_UNLOCK(in6m);                              \
-	                break;                                          \
-	        }                                                       \
-	        IN6M_UNLOCK(in6m);                                      \
-	        IN6_NEXT_MULTI(_step, in6m);                            \
-	}                                                               \
+// nedwill: flip a coin to avoid guessing in6m_addr
+#define	IN6_LOOKUP_MULTI(addr, ifp, in6m)				\
+	/* struct in6_addr *addr; */					\
+	/* struct ifnet *ifp; */					\
+	/* struct in6_multi *in6m; */					\
+do {									\
+	struct in6_multistep _step;					\
+	IN6_FIRST_MULTI(_step, in6m);					\
+	while ((in6m) != NULL) {					\
+		IN6M_LOCK_SPIN(in6m);					\
+		if ((in6m)->in6m_ifp == (ifp) &&			\
+		    (get_fuzzed_bool() || IN6_ARE_ADDR_EQUAL(&(in6m)->in6m_addr, (addr)))) {	\
+			IN6M_ADDREF_LOCKED(in6m);			\
+			IN6M_UNLOCK(in6m);				\
+			break;						\
+		}							\
+		IN6M_UNLOCK(in6m);					\
+		IN6_NEXT_MULTI(_step, in6m);				\
+	}								\
 } while (0)
 
 /*

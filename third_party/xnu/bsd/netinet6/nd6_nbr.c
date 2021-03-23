@@ -1777,7 +1777,7 @@ nd6_dad_start(
 		lck_mtx_lock(&ndi->lock);
 		retrans = ndi->retrans * hz / 1000;
 		lck_mtx_unlock(&ndi->lock);
-		timeout((void (*)(void *))nd6_dad_timer, (void *)ifa, retrans);
+		// timeout((void (*)(void *))nd6_dad_timer, (void *)ifa, retrans);
 	} else {
 		int ntick;
 
@@ -1787,8 +1787,8 @@ nd6_dad_start(
 			ntick = *tick_delay + random() % (hz / 2);
 		}
 		*tick_delay = ntick;
-		timeout((void (*)(void *))nd6_dad_timer, (void *)ifa,
-		    ntick);
+		// timeout((void (*)(void *))nd6_dad_timer, (void *)ifa,
+		// 	ntick);
 	}
 
 	DAD_REMREF(dp);         /* drop our reference */
@@ -1852,7 +1852,7 @@ nd6_dad_stop(struct ifaddr *ifa)
 		return;
 	}
 
-	untimeout((void (*)(void *))nd6_dad_timer, (void *)ifa);
+	// untimeout((void (*)(void *))nd6_dad_timer, (void *)ifa);
 
 	nd6_dad_detach(dp, ifa);
 	DAD_REMREF(dp);         /* drop our reference */

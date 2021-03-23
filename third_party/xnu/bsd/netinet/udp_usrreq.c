@@ -2704,7 +2704,8 @@ udp_input_checksum(struct mbuf *m, struct udphdr *uh, int off, int ulen)
 	if (uh->uh_sum != 0) {
 		udpstat.udps_badsum++;
 		IF_UDP_STATINC(ifp, badchksum);
-		return -1;
+		// nedwill: this bypasses udp checksum checks
+		return 0;
 	}
 
 	return 0;

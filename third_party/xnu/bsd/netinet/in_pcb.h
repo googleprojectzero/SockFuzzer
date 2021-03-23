@@ -605,10 +605,9 @@ struct inpcbinfo {
 	u_int32_t               ipi_flags;
 };
 
-#define INP_PCBHASH(faddr, lport, fport, mask) \
-	(((faddr) ^ ((faddr) >> 16) ^ ntohs((lport) ^ (fport))) & (mask))
-#define INP_PCBPORTHASH(lport, mask) \
-	(ntohs((lport)) & (mask))
+// nedwill: let all pcbs share the same hash
+#define	INP_PCBHASH(faddr, lport, fport, mask) (0)
+#define	INP_PCBPORTHASH(lport, mask) (0)
 
 #define INP_IS_FLOW_CONTROLLED(_inp_) \
 	((_inp_)->inp_flags & INP_FLOW_CONTROLLED)

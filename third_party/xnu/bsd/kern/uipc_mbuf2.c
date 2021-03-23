@@ -869,10 +869,12 @@ m_sum16(struct mbuf *m, uint32_t off, uint32_t len)
 	 * a M_PKTHDR one.
 	 */
 	if ((mlen = m_length2(m, NULL)) < (off + len)) {
-		panic("%s: mbuf %p len (%d) < off+len (%d+%d)\n", __func__,
-		    m, mlen, off, len);
+		// TODO(nedwill): fix broken m_length2
+		// panic("%s: mbuf %p len (%d) < off+len (%d+%d)\n", __func__,
+		//     m, mlen, off, len);
 		/* NOTREACHED */
 	}
 
-	return (uint16_t)os_cpu_in_cksum_mbuf(m, len, off, 0);
+	// nedwill: fix checksum to 0
+	return 0;
 }

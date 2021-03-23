@@ -1198,8 +1198,8 @@ static struct necp_resolver_key_state s_necp_resolver_key_state;
 static void
 necp_generate_resolver_key(void)
 {
-	s_necp_resolver_key_state.digest_info = ccsha256_di();
-	cc_rand_generate(s_necp_resolver_key_state.key, sizeof(s_necp_resolver_key_state.key));
+	s_necp_resolver_key_state.digest_info = 0; // ccsha256_di();
+	bzero(s_necp_resolver_key_state.key, sizeof(s_necp_resolver_key_state.key));
 }
 
 static void

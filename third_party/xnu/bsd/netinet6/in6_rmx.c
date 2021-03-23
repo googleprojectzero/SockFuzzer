@@ -129,8 +129,8 @@
 
 extern int      tvtohz(struct timeval *);
 
-static int in6_rtqtimo_run;             /* in6_rtqtimo is scheduled to run */
-static void in6_rtqtimo(void *);
+static int in6_rtqtimo_run;		/* in6_rtqtimo is scheduled to run */
+void in6_rtqtimo(void *);
 static void in6_sched_rtqtimo(struct timeval *);
 
 static struct radix_node *in6_addroute(void *, void *, struct radix_node_head *,
@@ -653,7 +653,7 @@ in6_rtqkill(struct radix_node *rn, void *rock)
 #define RTQ_TIMEOUT     60*10   /* run no less than once every ten minutes */
 static int rtq_timeout = RTQ_TIMEOUT;
 
-static void
+void
 in6_rtqtimo(void *targ)
 {
 #pragma unused(targ)
@@ -741,7 +741,7 @@ in6_sched_rtqtimo(struct timeval *atv)
 			    (uint64_t)atv->tv_sec, (uint64_t)atv->tv_usec);
 		}
 		in6_rtqtimo_run = 1;
-		timeout(in6_rtqtimo, NULL, tvtohz(atv));
+		// timeout(in6_rtqtimo, NULL, tvtohz(atv));
 	}
 }
 

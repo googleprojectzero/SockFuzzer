@@ -591,7 +591,7 @@ tcp_init(struct protosw *pp, struct domain *dp)
 		panic("MPKL_CREATE_LOGOBJECT failed");
 	}
 
-	logging_config = atm_get_diagnostic_config();
+	logging_config = 0; // atm_get_diagnostic_config();
 	if (logging_config & 0x80000000) {
 		tcp_log_privacy = 1;
 	}
@@ -3208,6 +3208,12 @@ tcp_sbspace(struct tcpcb *tp)
 
 	return space;
 }
+
+void tcp_fuzzer_reset() {
+	_net_uptime = 0;
+	tcp_now = 0;
+}
+
 /*
  * Checks TCP Segment Offloading capability for a given connection
  * and interface pair.

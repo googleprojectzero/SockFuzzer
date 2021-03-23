@@ -575,9 +575,10 @@ sbwait(struct sockbuf *sb)
 	sb->sb_waiters++;
 	VERIFY(sb->sb_waiters != 0);
 
-	error = msleep((caddr_t)&sb->sb_cc, mutex_held,
-	    nointr ? PSOCK : PSOCK | PCATCH,
-	    nointr ? "sbwait_nointr" : "sbwait", &ts);
+	// nedwill: don't sleep, just continue on
+	// error = msleep((caddr_t)&sb->sb_cc, mutex_held,
+	//     nointr ? PSOCK : PSOCK | PCATCH,
+	//     nointr ? "sbwait_nointr" : "sbwait", &ts);
 
 	VERIFY(sb->sb_waiters != 0);
 	sb->sb_waiters--;
@@ -2338,6 +2339,8 @@ sbfree(struct sockbuf *sb, struct mbuf *m)
 	}
 }
 
+extern bool get_fuzzed_bool();
+
 /*
  * Set lock on sockbuf sb; sleep if lock is already held.
  * Unless SB_NOINTR is set on sockbuf, sleep is interruptible.
@@ -2399,9 +2402,13 @@ sblock(struct sockbuf *sb, uint32_t flags)
 	 * A content filter thread has exclusive access to the sockbuf
 	 * until it clears the
 	 */
+	int trys = 0;
 	while ((sb->sb_flags & SB_LOCK) ||
 	    ((so->so_flags & SOF_CONTENT_FILTER) &&
 	    sb->sb_cfil_thread != NULL)) {
+		if (trys++ > 10) {
+			break;
+		}
 		lck_mtx_t *mutex_held;
 
 		/*
@@ -2421,9 +2428,9 @@ sblock(struct sockbuf *sb, uint32_t flags)
 		sb->sb_wantlock++;
 		VERIFY(sb->sb_wantlock != 0);
 
-		error = msleep(wchan, mutex_held,
-		    nointr ? PSOCK : PSOCK | PCATCH,
-		    nointr ? "sb_lock_nointr" : "sb_lock", NULL);
+		error = get_fuzzed_bool(); // msleep(wchan, mutex_held,
+		    // nointr ? PSOCK : PSOCK | PCATCH,
+		    // nointr ? "sb_lock_nointr" : "sb_lock", NULL);
 
 		VERIFY(sb->sb_wantlock != 0);
 		sb->sb_wantlock--;
