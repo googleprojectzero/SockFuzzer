@@ -1,0 +1,1 @@
+#define MACH_FASTLINK 1

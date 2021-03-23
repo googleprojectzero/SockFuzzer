@@ -1,0 +1,1 @@
+#define CONFIG_KASAN 0

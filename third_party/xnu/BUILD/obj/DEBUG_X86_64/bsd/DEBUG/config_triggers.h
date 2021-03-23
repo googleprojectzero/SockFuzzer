@@ -1,0 +1,1 @@
+#define CONFIG_TRIGGERS 1
