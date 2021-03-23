@@ -768,7 +768,8 @@
 #define __DARWIN_EXTSN(sym)             __asm("_" __STRING(sym) __DARWIN_SUF_EXTSN)
 #define __DARWIN_EXTSN_C(sym)           __asm("_" __STRING(sym) __DARWIN_SUF_EXTSN __DARWIN_SUF_NON_CANCELABLE)
 #if XNU_KERNEL_PRIVATE
-#define __XNU_INTERNAL(sym)             __asm("_" __STRING(sym) "$XNU_INTERNAL")
+// nedwill: for Linux build compat don't append suffix
+#define __XNU_INTERNAL(sym)             __asm("_" __STRING(sym))
 #endif
 
 /*
