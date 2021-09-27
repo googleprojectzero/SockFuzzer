@@ -535,6 +535,8 @@ _sock_listen
 _sock_nointerrupt
 _sock_receive
 _sock_receivembuf
+_sock_release
+_sock_retain
 _sock_send
 _sock_sendmbuf
 _sock_setpriv
@@ -569,7 +571,6 @@ _sysctl__machdep_children
 _sysctl__net_children
 _sysctl__sysctl_children
 _sysctl__vfs_children
-_sysctl__vfs_generic
 _sysctl__vfs_generic_children
 _sysctl__vm_children
 _sysctl_handle_int
@@ -773,6 +774,7 @@ _vnode_vid
 _vnode_isonexternalstorage
 _vnode_vtype
 _vnode_waitforwrites
+_vnode_willberecycled
 _vnode_writedone
 _vnop_access_desc
 _vnop_advlock_desc

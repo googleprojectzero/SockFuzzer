@@ -184,15 +184,15 @@ ml_cpu_signal_type(unsigned int cpu_mpidr, uint32_t type)
 	MRS(local_mpidr, "MPIDR_EL1");
 	if (MPIDR_CLUSTER_ID(local_mpidr) == MPIDR_CLUSTER_ID(cpu_mpidr)) {
 		uint64_t x = type | MPIDR_CPU_ID(cpu_mpidr);
-		MSR(ARM64_REG_IPI_RR_LOCAL, x);
+		MSR("IPIRR_LOCAL_EL1", x);
 	} else {
 		#define IPI_RR_TARGET_CLUSTER_SHIFT 16
 		uint64_t x = type | (MPIDR_CLUSTER_ID(cpu_mpidr) << IPI_RR_TARGET_CLUSTER_SHIFT) | MPIDR_CPU_ID(cpu_mpidr);
-		MSR(ARM64_REG_IPI_RR_GLOBAL, x);
+		MSR("IPIRR_GLOBAL_EL1", x);
 	}
 #else
 	uint64_t x = type | MPIDR_CPU_ID(cpu_mpidr);
-	MSR(ARM64_REG_IPI_RR, x);
+	MSR("IPIRR_GLOBAL_EL1", x);
 #endif
 }
 #endif
@@ -236,7 +236,7 @@ ml_cpu_signal_deferred_adjust_timer(uint64_t nanosecs)
 	/* update deferred_ipi_timer_ns with the new clamped value */
 	absolutetime_to_nanoseconds(abstime, &deferred_ipi_timer_ns);
 
-	MSR(ARM64_REG_IPI_CR, abstime);
+	MSR("IPICR_EL1", abstime);
 #else
 	(void)nanosecs;
 	panic("Platform does not support ACC Fast IPI");
@@ -494,6 +494,89 @@ machine_processor_shutdown(
 	return Shutdown_context(doshutdown, processor);
 }
 
+#if APPLEVIRTUALPLATFORM
+
+static uint64_t
+virtual_timeout_inflate64(unsigned int vti, uint64_t timeout, uint64_t max_timeout)
+{
+	if (vti >= 64) {
+		return max_timeout;
+	}
+
+	if ((timeout << vti) >> vti != timeout) {
+		return max_timeout;
+	}
+
+	if ((timeout << vti) > max_timeout) {
+		return max_timeout;
+	}
+
+	return timeout << vti;
+}
+
+static uint32_t
+virtual_timeout_inflate32(unsigned int vti, uint32_t timeout, uint32_t max_timeout)
+{
+	if (vti >= 32) {
+		return max_timeout;
+	}
+
+	if ((timeout << vti) >> vti != timeout) {
+		return max_timeout;
+	}
+
+	return timeout << vti;
+}
+
+/*
+ * Some timeouts are later adjusted or used in calculations setting
+ * other values. In order to avoid overflow, cap the max timeout as
+ * 2^47ns (~39 hours). (How did we determine this number?)
+ */
+static const uint64_t max_timeout_ns = 1ULL << 47;
+
+/*
+ * Inflate a timeout in nanosecond.
+ */
+uint64_t
+virtual_timeout_inflate_ns(unsigned int vti, uint64_t timeout)
+{
+	return virtual_timeout_inflate64(vti, timeout, max_timeout_ns);
+}
+
+/*
+ * Inflate a timeout in absolutetime.
+ */
+uint64_t
+virtual_timeout_inflate_abs(unsigned int vti, uint64_t timeout)
+{
+	uint64_t max_timeout;
+	nanoseconds_to_absolutetime(max_timeout_ns, &max_timeout);
+	return virtual_timeout_inflate64(vti, timeout, max_timeout);
+}
+
+/*
+ * Inflate a timeout in absolutetime (32-bit).
+ */
+static uint64_t
+virtual_timeout_inflate_abs_32(unsigned int vti, uint32_t timeout)
+{
+	const uint32_t max_timeout = ~0;
+	return virtual_timeout_inflate32(vti, timeout, max_timeout);
+}
+
+/*
+ * Inflate a timeout in microseconds.
+ */
+static uint32_t
+virtual_timeout_inflate_us(unsigned int vti, uint64_t timeout)
+{
+	const uint32_t max_timeout = ~0;
+	return virtual_timeout_inflate32(vti, timeout, max_timeout);
+}
+
+#endif /* APPLEVIRTUALPLATFORM */
+
 /*
  *      Routine:        ml_init_lock_timeout
  *      Function:
@@ -531,6 +614,42 @@ ml_init_lock_timeout(void)
 	}
 	MutexSpin = abstime;
 	low_MutexSpin = MutexSpin;
+
+#if APPLEVIRTUALPLATFORM
+	unsigned int vti;
+
+	if (!PE_parse_boot_argn("vti", &vti, sizeof(vti))) {
+		vti = 6;
+	}
+	kprintf("Lock timeouts adjusted for virtualization (<<%d):\n", vti);
+#define VIRTUAL_TIMEOUT_INFLATE_ABS(_timeout)              \
+MACRO_BEGIN                                                \
+	kprintf("%24s: 0x%016llx ", #_timeout, _timeout);      \
+	_timeout = virtual_timeout_inflate_abs(vti, _timeout); \
+	kprintf("-> 0x%016llx\n",  _timeout);                  \
+MACRO_END
+
+#define VIRTUAL_TIMEOUT_INFLATE_ABS_32(_timeout)              \
+MACRO_BEGIN                                                \
+	kprintf("%24s: 0x%08x ", #_timeout, _timeout);      \
+	_timeout = virtual_timeout_inflate_abs_32(vti, _timeout); \
+	kprintf("-> 0x%0x\n",  _timeout);                  \
+MACRO_END
+
+#define VIRTUAL_TIMEOUT_INFLATE_US(_timeout)               \
+MACRO_BEGIN                                                \
+	kprintf("%24s:         0x%08x ", #_timeout, _timeout); \
+	_timeout = virtual_timeout_inflate_us(vti, _timeout);  \
+	kprintf("-> 0x%08x\n",  _timeout);                     \
+MACRO_END
+
+	VIRTUAL_TIMEOUT_INFLATE_US(LockTimeOutUsec);
+	VIRTUAL_TIMEOUT_INFLATE_ABS_32(LockTimeOut);
+	VIRTUAL_TIMEOUT_INFLATE_ABS(TLockTimeOut);
+	VIRTUAL_TIMEOUT_INFLATE_ABS(MutexSpin);
+	VIRTUAL_TIMEOUT_INFLATE_ABS(low_MutexSpin);
+#endif /* APPLEVIRTUALPLATFORM */
+
 	/*
 	 * high_MutexSpin should be initialized as low_MutexSpin * real_ncpus, but
 	 * real_ncpus is not set at this time
@@ -541,6 +660,17 @@ ml_init_lock_timeout(void)
 	high_MutexSpin = low_MutexSpin;
 
 	nanoseconds_to_absolutetime(MAX_WFE_HINT_INTERVAL_US * NSEC_PER_USEC, &ml_wfe_hint_max_interval);
+}
+
+/*
+ * This is called when all of the ml_processor_info_t structures have been
+ * initialized and all the processors have been started through processor_start().
+ *
+ * Required by the scheduler subsystem.
+ */
+void
+ml_cpu_init_completed(void)
+{
 }
 
 /*
@@ -822,29 +952,6 @@ ml_read_chip_revision(unsigned int *rev __unused)
 #endif
 }
 
-static boolean_t
-ml_parse_interrupt_prop(const DTEntry entry, ml_topology_cpu_t *cpu)
-{
-	uint32_t const *prop;
-	unsigned int propSize;
-
-	if (SecureDTGetProperty(entry, "interrupts", (void const **)&prop, &propSize) != kSuccess) {
-		return FALSE;
-	}
-
-	if (propSize == sizeof(uint32_t) * 1) {
-		cpu->pmi_irq = prop[0];
-		return TRUE;
-	} else if (propSize == sizeof(uint32_t) * 3) {
-		cpu->self_ipi_irq = prop[0];
-		cpu->pmi_irq = prop[1];
-		cpu->other_ipi_irq = prop[2];
-		return TRUE;
-	} else {
-		return FALSE;
-	}
-}
-
 void
 ml_parse_cpu_topology(void)
 {
@@ -903,7 +1010,6 @@ ml_parse_cpu_topology(void)
 		cpu->l3_cache_size = (uint32_t)ml_readprop(child, "l3-cache-size", 0);
 		cpu->l3_cache_id = (uint32_t)ml_readprop(child, "l3-cache-id", 0);
 
-		ml_parse_interrupt_prop(child, cpu);
 		ml_read_reg_range(child, "cpu-uttdbg-reg", &cpu->cpu_UTTDBG_pa, &cpu->cpu_UTTDBG_len);
 		ml_read_reg_range(child, "cpu-impl-reg", &cpu->cpu_IMPL_pa, &cpu->cpu_IMPL_len);
 		ml_read_reg_range(child, "coresight-reg", &cpu->coresight_pa, &cpu->coresight_len);
@@ -1231,7 +1337,43 @@ ml_processor_register(ml_processor_info_t *in_processor_info,
 	this_cpu_datap->cluster_master = is_boot_cpu;
 #endif /* HAS_CLUSTER */
 
+#if !defined(RC_HIDE_XNU_FIRESTORM) && (MAX_CPU_CLUSTERS > 2)
+	{
+		/* Workaround for the existing scheduler
+		 * code, which only supports a limited number of psets.
+		 *
+		 * To get around that limitation, we distribute all cores into
+		 * two psets according to their cluster type, instead of
+		 * having a dedicated pset per cluster ID.
+		 */
+
+		pset_cluster_type_t pset_cluster_type;
+
+		/* For this workaround, we don't expect seeing anything else
+		 * than E or P clusters. */
+		switch (in_processor_info->cluster_type) {
+		case CLUSTER_TYPE_E:
+			pset_cluster_type = PSET_AMP_E;
+			break;
+		case CLUSTER_TYPE_P:
+			pset_cluster_type = PSET_AMP_P;
+			break;
+		default:
+			panic("unknown/unsupported cluster type %d", in_processor_info->cluster_type);
+		}
+
+		pset = pset_find_first_by_cluster_type(pset_cluster_type);
+
+		if (pset == NULL) {
+			panic("no pset for cluster type %d/%d", in_processor_info->cluster_type, pset_cluster_type);
+		}
+
+		kprintf("%s>chosen pset with cluster id %d cluster type %d for core:\n",
+		    __FUNCTION__, pset->pset_cluster_id, pset->pset_cluster_type);
+	}
+#else /* !defined(RC_HIDE_XNU_FIRESTORM) && (MAX_CPU_CLUSTERS > 2) */
 	pset = pset_find(in_processor_info->cluster_id, processor_pset(master_processor));
+#endif /* !defined(RC_HIDE_XNU_FIRESTORM) && (MAX_CPU_CLUSTERS > 2) */
 
 	assert(pset != NULL);
 	kprintf("%s>cpu_id %p cluster_id %d cpu_number %d is type %d\n", __FUNCTION__, in_processor_info->cpu_id, in_processor_info->cluster_id, this_cpu_datap->cpu_number, in_processor_info->cluster_type);
@@ -1560,12 +1702,25 @@ ml_static_protect(
 void
 ml_static_mfree(
 	vm_offset_t vaddr,
-	vm_size_t size)
+	vm_size_t   size)
 {
-	vm_offset_t     vaddr_cur;
-	ppnum_t         ppn;
-	uint32_t freed_pages = 0;
-	uint32_t freed_kernelcache_pages = 0;
+	vm_offset_t vaddr_cur;
+	ppnum_t     ppn;
+	uint32_t    freed_pages = 0;
+	uint32_t    bad_page_cnt = 0;
+	uint32_t    freed_kernelcache_pages = 0;
+
+#if defined(__arm64__) && (DEVELOPMENT || DEBUG)
+	/* For testing hitting a bad ram page */
+	static int count = 0;
+	static int bad_at_cnt = -1;
+	static bool first = true;
+
+	if (first) {
+		(void)PE_parse_boot_argn("bad_static_mfree", &bad_at_cnt, sizeof(bad_at_cnt));
+		first = false;
+	}
+#endif /* defined(__arm64__) && (DEVELOPMENT || DEBUG) */
 
 	/* It is acceptable (if bad) to fail to free. */
 	if (vaddr < VM_MIN_KERNEL_ADDRESS) {
@@ -1589,6 +1744,19 @@ ml_static_mfree(
 				panic("Failed ml_static_mfree on %p", (void *) vaddr_cur);
 			}
 
+#if defined(__arm64__)
+			bool is_bad = pmap_is_bad_ram(ppn);
+#if DEVELOPMENT || DEBUG
+			is_bad |= (count++ == bad_at_cnt);
+#endif /* DEVELOPMENT || DEBUG */
+
+			if (is_bad) {
+				++bad_page_cnt;
+				vm_page_create_retired(ppn);
+				continue;
+			}
+#endif /* defined(__arm64__) */
+
 			vm_page_create(ppn, (ppn + 1));
 			freed_pages++;
 			if (vaddr_cur >= segLOWEST && vaddr_cur < end_kern) {
@@ -1602,7 +1770,7 @@ ml_static_mfree(
 	vm_page_kernelcache_count -= freed_kernelcache_pages;
 	vm_page_unlock_queues();
 #if     DEBUG
-	kprintf("ml_static_mfree: Released 0x%x pages at VA %p, size:0x%llx, last ppn: 0x%x\n", freed_pages, (void *)vaddr, (uint64_t)size, ppn);
+	kprintf("ml_static_mfree: Released 0x%x pages at VA %p, size:0x%llx, last ppn: 0x%x, +%d bad\n", freed_pages, (void *)vaddr, (uint64_t)size, ppn, bad_page_cnt);
 #endif
 }
 
@@ -1888,7 +2056,7 @@ cache_trap_error(thread_t thread, vm_map_address_t fault_addr)
 }
 
 static void
-cache_trap_recover()
+cache_trap_recover(void)
 {
 	vm_map_address_t fault_addr;
 
@@ -1901,7 +2069,8 @@ static void
 set_cache_trap_recover(thread_t thread)
 {
 #if defined(HAS_APPLE_PAC)
-	thread->recover = (vm_address_t)ptrauth_auth_and_resign(&cache_trap_recover,
+	void *fun = &cache_trap_recover;
+	thread->recover = (vm_address_t)ptrauth_auth_and_resign(fun,
 	    ptrauth_key_function_pointer, 0,
 	    ptrauth_key_function_pointer, ptrauth_blend_discriminator(&thread->recover, PAC_DISCRIMINATOR_RECOVER));
 #else /* defined(HAS_APPLE_PAC) */

@@ -1,1 +1,0 @@
-#define BRIDGESTP 0

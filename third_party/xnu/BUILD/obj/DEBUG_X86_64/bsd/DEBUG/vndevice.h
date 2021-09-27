@@ -1,1 +1,0 @@
-#define NVNDEVICE 4

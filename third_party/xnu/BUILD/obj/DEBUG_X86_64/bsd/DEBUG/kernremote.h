@@ -1,1 +1,0 @@
-#define KERNREMOTE 0

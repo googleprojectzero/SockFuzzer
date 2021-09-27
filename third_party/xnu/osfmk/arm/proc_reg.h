@@ -382,6 +382,14 @@
 /* D-Cache. */
 #define MMU_CLINE   6
 
+#elif defined (VMAPPLE)
+
+/* I-Cache. */
+#define MMU_I_CLINE 6
+
+/* D-Cache. */
+#define MMU_CLINE   6
+
 #else
 #error processor not supported
 #endif
@@ -855,6 +863,8 @@
 #define ARM_PTE_PNXSHIFT       0
 #define ARM_PTE_PNX            0x00000000             /* no privilege execute. not impl */
 #define ARM_PTE_PNX_MASK       (0<<ARM_PTE_NXSHIFT)
+
+#define ARM_PTE_XMASK          (ARM_PTE_PNX_MASK | ARM_PTE_NX_MASK)
 
 #define ARM_PTE_TEX0SHIFT      6
 #define ARM_PTE_TEX0           (1<<ARM_PTE_TEX0SHIFT)

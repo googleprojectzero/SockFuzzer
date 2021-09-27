@@ -72,7 +72,7 @@ static_assert(sizeof(cpumap_t) * CHAR_BIT >= MAX_CPUS, "cpumap_t bitvector is to
 #define CPUWINDOWS_BASE                 (VM_MAX_KERNEL_ADDRESS & CPUWINDOWS_BASE_MASK)
 #define CPUWINDOWS_TOP                  (CPUWINDOWS_BASE + (MAX_CPUS * CPUWINDOWS_MAX * ARM_PGBYTES))
 
-static_assert((CPUWINDOWS_BASE >= VM_MIN_KERNEL_ADDRESS) && (CPUWINDOWS_TOP <= VM_MAX_KERNEL_ADDRESS),
+static_assert((CPUWINDOWS_BASE >= VM_MIN_KERNEL_ADDRESS) && ((CPUWINDOWS_TOP - 1) <= VM_MAX_KERNEL_ADDRESS),
     "CPU copy windows too large for CPUWINDOWS_BASE_MASK value");
 
 typedef struct cpu_data_entry {
@@ -284,6 +284,15 @@ typedef struct cpu_data {
 	uint64_t                        wfe_count;
 	uint64_t                        wfe_deadline_checks;
 	uint64_t                        wfe_terminations;
+#endif
+#if __arm64__
+	/**
+	 * Stash the state of the system when an IPI is received. This will be
+	 * dumped in the case a panic is getting triggered.
+	 */
+	uint64_t ipi_pc;
+	uint64_t ipi_lr;
+	uint64_t ipi_fp;
 #endif
 } cpu_data_t;
 
