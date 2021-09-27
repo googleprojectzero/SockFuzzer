@@ -1,0 +1,1 @@
+#define CONFIG_KSANCOV 0
