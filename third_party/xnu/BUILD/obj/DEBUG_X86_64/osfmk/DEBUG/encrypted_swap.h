@@ -1,0 +1,1 @@
+#define ENCRYPTED_SWAP 1

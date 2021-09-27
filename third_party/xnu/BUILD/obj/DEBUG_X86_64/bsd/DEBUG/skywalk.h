@@ -1,0 +1,1 @@
+#define NSKYWALK 0

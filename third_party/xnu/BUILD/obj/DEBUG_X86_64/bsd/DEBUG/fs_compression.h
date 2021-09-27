@@ -1,0 +1,1 @@
+#define FS_COMPRESSION 1

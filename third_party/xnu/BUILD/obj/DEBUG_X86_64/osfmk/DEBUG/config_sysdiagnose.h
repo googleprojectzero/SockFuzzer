@@ -1,0 +1,1 @@
+#define NCONFIG_SYSDIAGNOSE 0
