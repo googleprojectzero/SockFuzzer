@@ -1,1 +1,0 @@
-#define NGIF 1

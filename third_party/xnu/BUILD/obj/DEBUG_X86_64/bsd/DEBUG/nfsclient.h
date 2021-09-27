@@ -1,1 +1,0 @@
-#define NFSCLIENT 1

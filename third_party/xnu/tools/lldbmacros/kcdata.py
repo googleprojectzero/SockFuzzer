@@ -16,6 +16,10 @@ import contextlib
 import base64
 import zlib
 
+# can be removed once we move to Python3.1+
+from future.utils.surrogateescape import register_surrogateescape
+register_surrogateescape()
+
 class Globals(object):
     pass
 G = Globals()
@@ -165,6 +169,17 @@ KNOWN_TOPLEVEL_CONTAINER_TYPES = ()
 def enum(**args):
     return type('enum', (), args)
 
+#
+# Decode bytes as UTF-8, using surrogateescape if there are invalid UTF-8
+# sequences; see PEP-383
+#
+def BytesToString(b):
+    return b.decode('utf-8', errors="surrogateescape")
+
+# important keys
+SC_SLID_FIRSTMAPPING_KEY = 'sharedCacheSlidFirstMapping'
+
+# important builtin types
 KCSUBTYPE_TYPE = enum(KC_ST_CHAR=1, KC_ST_INT8=2, KC_ST_UINT8=3, KC_ST_INT16=4, KC_ST_UINT16=5, KC_ST_INT32=6, KC_ST_UINT32=7, KC_ST_INT64=8, KC_ST_UINT64=9)
 
 
@@ -210,7 +225,7 @@ class KCSubTypeElement(object):
     @staticmethod
     def FromBinaryTypeData(byte_data):
         (st_flag, st_type, st_offset, st_size, st_name) = struct.unpack_from('=BBHI32s', byte_data)
-        st_name = st_name.rstrip('\x00')
+        st_name = BytesToString(st_name.rstrip('\0'))
         return KCSubTypeElement(st_name, st_type, st_size, st_offset, st_flag)
 
     @staticmethod
@@ -238,7 +253,10 @@ class KCSubTypeElement(object):
         return self.totalsize
 
     def GetValueAsString(self, base_data, array_pos=0):
-        return str(self.GetValue(base_data, array_pos))
+        v = self.GetValue(base_data, array_pos)
+        if isinstance(v, bytes):
+            return BytesToString(v)
+        return str(v)
 
     def GetValue(self, base_data, array_pos=0):
         return struct.unpack_from(self.unpack_fmt, base_data[self.offset + (array_pos * self.size):])[0]
@@ -499,14 +517,14 @@ class KCObject(object):
         elif self.i_type == GetTypeForName('KCDATA_TYPE_UINT32_DESC'):
             self.is_naked_type = True
             u_d = struct.unpack_from('32sI', self.i_data)
-            self.i_name = u_d[0].strip(chr(0))
+            self.i_name = BytesToString(u_d[0].rstrip('\0'))
             self.obj = u_d[1]
             logging.info("0x%08x: %s%s" % (self.offset, INDENT(), self.i_name))
 
         elif self.i_type == GetTypeForName('KCDATA_TYPE_UINT64_DESC'):
             self.is_naked_type = True
             u_d = struct.unpack_from('32sQ', self.i_data)
-            self.i_name = u_d[0].strip(chr(0))
+            self.i_name = BytesToString(u_d[0].rstrip('\0'))
             self.obj = u_d[1]
             logging.info("0x%08x: %s%s" % (self.offset, INDENT(), self.i_name))
 
@@ -944,6 +962,7 @@ KNOWN_TYPES_COLLECTION[GetTypeForName('STACKSHOT_KCTYPE_SHAREDCACHE_LOADINFO')] 
     KCSubTypeElement('imageLoadAddress', KCSUBTYPE_TYPE.KC_ST_UINT64, 8, 0, 0),
     KCSubTypeElement('imageUUID', KCSUBTYPE_TYPE.KC_ST_UINT8, KCSubTypeElement.GetSizeForArray(16, 1), 8, 1),
     KCSubTypeElement('imageSlidBaseAddress', KCSUBTYPE_TYPE.KC_ST_UINT64, 8, 24, 0),
+    KCSubTypeElement('sharedCacheSlidFirstMapping', KCSUBTYPE_TYPE.KC_ST_UINT64, 8, 32, 0),
 ),
     'shared_cache_dyld_load_info',
     legacy_size = 0x18
@@ -1238,6 +1257,7 @@ KNOWN_TYPES_COLLECTION[GetTypeForName('STACKSHOT_KCTYPE_STACKSHOT_DURATION')] = 
     (
         KCSubTypeElement.FromBasicCtype('stackshot_duration', KCSUBTYPE_TYPE.KC_ST_UINT64, 0),
         KCSubTypeElement.FromBasicCtype('stackshot_duration_outer', KCSUBTYPE_TYPE.KC_ST_UINT64, 8),
+        KCSubTypeElement.FromBasicCtype('stackshot_duration_prior', KCSUBTYPE_TYPE.KC_ST_UINT64, 16),
     ), 'stackshot_duration', merge=True
 )
 
@@ -1570,11 +1590,39 @@ def SaveStackshotReport(j, outfile_name, incomplete):
     os_version = ss.get('osversion', 'Unknown')
     timebase = ss.get('mach_timebase_info', {"denom": 1, "numer": 1})
 
+    sc_note = None
+    extra_note = None
     dsc_common = None
     shared_cache_info = ss.get('shared_cache_dyld_load_info')
     if shared_cache_info:
         shared_cache_base_addr = shared_cache_info['imageSlidBaseAddress']
-        dsc_common = [format_uuid(shared_cache_info['imageUUID']), shared_cache_info['imageSlidBaseAddress'], "S" ]
+        # If we have a slidFirstMapping and it's >= base_address, use that.
+        #
+        # Otherwise we're processing a stackshot from before the slidFirstMapping
+        # field was introduced and corrected.  On ARM the SlidBaseAddress is the
+        # same, but on x86 it's off by 0x20000000.  We use 'X86_64' in the
+        # kernel version string plus checking kern_page_size == 4k' as
+        # proxy for x86_64, and only adjust SlidBaseAddress if the unslid
+        # address is precisely the expected incorrect value.
+        #
+        is_intel = ('X86_64' in ss.get('osversion', "") and
+           ss.get('kernel_page_size', 0) == 4096)
+        slidFirstMapping = shared_cache_info.get(SC_SLID_FIRSTMAPPING_KEY, -1);
+        if slidFirstMapping >= shared_cache_base_addr:
+            shared_cache_base_addr = slidFirstMapping
+            sc_note = "base-accurate"
+
+        elif is_intel:
+            sc_slide = shared_cache_info['imageLoadAddress']
+            if (shared_cache_base_addr - sc_slide) == 0x7fff00000000:
+                shared_cache_base_addr += 0x20000000
+                sc_note = "base-x86-adjusted"
+                extra_note = "Shared cache base adjusted for x86. "
+            else:
+                sc_note = "base-x86-unknown"
+
+        dsc_common = [format_uuid(shared_cache_info['imageUUID']),
+                shared_cache_base_addr, "S" ]
         print "Shared cache UUID found from the binary data is <%s> " % str(dsc_common[0])
 
     dsc_layout = ss.get('system_shared_cache_layout')
@@ -1599,10 +1647,15 @@ def SaveStackshotReport(j, outfile_name, incomplete):
     obj["frontmostPids"] = [0]
     obj["exception"] = "0xDEADF157"
     obj["processByPid"] = {}
+    if sc_note is not None:
+        obj["sharedCacheNote"] = sc_note
 
     if incomplete:
         obj["reason"] = "!!!INCOMPLETE!!! kernel panic stackshot"
         obj["notes"] = "This stackshot report generated from incomplete data!   Some information is missing! "
+
+    if extra_note is not None:
+        obj["notes"] = obj.get("notes", "") + extra_note
         
     processByPid = obj["processByPid"]
     ssplist = ss.get('task_snapshots', {})
@@ -1759,30 +1812,6 @@ def RunCommand(bash_cmd_string, get_stderr = True):
         return (exit_code, output_str)
 
 
-parser = argparse.ArgumentParser(description="Decode a kcdata binary file.")
-parser.add_argument("-l", "--listtypes", action="store_true", required=False, default=False,
-                    help="List all known types",
-                    dest="list_known_types")
-
-parser.add_argument("-s", "--stackshot", required=False, default=False,
-                    help="Generate a stackshot report file",
-                    dest="stackshot_file")
-
-parser.add_argument("--multiple", help="look for multiple stackshots in a single file", action='store_true')
-
-parser.add_argument("-p", "--plist", required=False, default=False,
-                    help="output as plist", action="store_true")
-
-parser.add_argument("-S", "--sdk", required=False, default="", help="sdk property passed to xcrun command to find the required tools. Default is empty string.", dest="sdk")
-parser.add_argument("--pretty", default=False, action='store_true', help="make the output a little more human readable")
-parser.add_argument("--incomplete", action='store_true', help="accept incomplete data")
-parser.add_argument("kcdata_file", type=argparse.FileType('r'), help="Path to a kcdata binary file.")
-
-class VerboseAction(argparse.Action):
-    def __call__(self, parser, namespace, values, option_string=None):
-        logging.basicConfig(level=logging.INFO, stream=sys.stderr, format='%(message)s')
-parser.add_argument('-v', "--verbose", action=VerboseAction, nargs=0)
-
 @contextlib.contextmanager
 def data_from_stream(stream):
     try:
@@ -1858,7 +1887,7 @@ def prettify(data):
                 value = '%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X' % tuple(value)
             elif 'address' in key.lower() and isinstance(value, (int, long)):
                 value = '0x%X' % value
-            elif key == 'lr':
+            elif key == 'lr' or key == SC_SLID_FIRSTMAPPING_KEY:
                 value = '0x%X' % value
             elif key == 'thread_waitinfo':
                 value = map(formatWaitInfo, value)
@@ -1876,6 +1905,30 @@ def prettify(data):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Decode a kcdata binary file.")
+    parser.add_argument("-l", "--listtypes", action="store_true", required=False, default=False,
+                        help="List all known types",
+                        dest="list_known_types")
+
+    parser.add_argument("-s", "--stackshot", required=False, default=False,
+                        help="Generate a stackshot report file",
+                        dest="stackshot_file")
+
+    parser.add_argument("--multiple", help="look for multiple stackshots in a single file", action='store_true')
+
+    parser.add_argument("-p", "--plist", required=False, default=False,
+                        help="output as plist", action="store_true")
+
+    parser.add_argument("-S", "--sdk", required=False, default="", help="sdk property passed to xcrun command to find the required tools. Default is empty string.", dest="sdk")
+    parser.add_argument("--pretty", default=False, action='store_true', help="make the output a little more human readable")
+    parser.add_argument("--incomplete", action='store_true', help="accept incomplete data")
+    parser.add_argument("kcdata_file", type=argparse.FileType('r'), help="Path to a kcdata binary file.")
+
+    class VerboseAction(argparse.Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            logging.basicConfig(level=logging.INFO, stream=sys.stderr, format='%(message)s')
+    parser.add_argument('-v', "--verbose", action=VerboseAction, nargs=0)
+
     args = parser.parse_args()
 
     if args.multiple and args.stackshot_file:

@@ -124,6 +124,17 @@ uint64_t interrupt_masked_timeout = 0xd0000;
 uint64_t stackshot_interrupt_masked_timeout = 0xf9999;
 #endif
 
+/*
+ * A 6-second timeout will give the watchdog code a chance to run
+ * before a panic is triggered by the xcall routine.
+ */
+#define XCALL_ACK_TIMEOUT_NS ((uint64_t) 6000000000)
+uint64_t xcall_ack_timeout_abstime;
+
+#if APPLEVIRTUALPLATFORM
+extern uint64_t debug_ack_timeout;
+#endif
+
 boot_args const_boot_args __attribute__((section("__DATA, __const")));
 boot_args      *BootArgs __attribute__((section("__DATA, __const")));
 
@@ -145,6 +156,8 @@ SECURITY_READ_ONLY_LATE(boolean_t) diversify_user_jop = TRUE;
 
 SECURITY_READ_ONLY_LATE(uint64_t) gDramBase;
 SECURITY_READ_ONLY_LATE(uint64_t) gDramSize;
+
+SECURITY_READ_ONLY_LATE(bool) serial_console_enabled = false;
 
 /*
  * Forward definition
@@ -435,7 +448,34 @@ arm_init(
 	}
 
 	PE_parse_boot_argn("interrupt_masked_debug_timeout", &interrupt_masked_timeout, sizeof(interrupt_masked_timeout));
-#endif
+
+#endif /* INTERRUPT_MASKED_DEBUG */
+
+	nanoseconds_to_absolutetime(XCALL_ACK_TIMEOUT_NS, &xcall_ack_timeout_abstime);
+
+#if APPLEVIRTUALPLATFORM
+	unsigned int vti;
+
+	if (!PE_parse_boot_argn("vti", &vti, sizeof(vti))) {
+		vti = 6;
+	}
+
+#define VIRTUAL_TIMEOUT_INFLATE_ABS(_timeout)              \
+MACRO_BEGIN                                                \
+	_timeout = virtual_timeout_inflate_abs(vti, _timeout); \
+MACRO_END
+
+#define VIRTUAL_TIMEOUT_INFLATE_NS(_timeout)              \
+MACRO_BEGIN                                                \
+	_timeout = virtual_timeout_inflate_ns(vti, _timeout); \
+MACRO_END
+
+#if INTERRUPT_MASKED_DEBUG
+	VIRTUAL_TIMEOUT_INFLATE_ABS(interrupt_masked_timeout);
+	VIRTUAL_TIMEOUT_INFLATE_ABS(stackshot_interrupt_masked_timeout);
+#endif /* INTERRUPT_MASKED_DEBUG */
+	VIRTUAL_TIMEOUT_INFLATE_NS(debug_ack_timeout);
+#endif /* APPLEVIRTUALPLATFORM */
 
 #if HAS_BP_RET
 	PE_parse_boot_argn("bpret", &bp_ret, sizeof(bp_ret));
@@ -496,6 +536,7 @@ arm_init(
 	}
 
 	if (serialmode & SERIALMODE_OUTPUT) {                 /* Start serial if requested */
+		serial_console_enabled = true;
 		(void)switch_to_serial_console(); /* Switch into serial mode */
 		disableConsoleOutput = FALSE;     /* Allow printfs to happen */
 	}
