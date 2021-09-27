@@ -209,9 +209,6 @@ endif
 ifeq ($(NMEDIT),)
 	export NMEDIT := $(shell $(XCRUN) -sdk $(SDKROOT) -find nmedit)
 endif
-ifeq ($(SCAN_BUILD),)
-	export SCAN_BUILD := $(shell $(XCRUN) -sdk $(SDKROOT) -find scan-build)
-endif
 
 #
 # Platform options
