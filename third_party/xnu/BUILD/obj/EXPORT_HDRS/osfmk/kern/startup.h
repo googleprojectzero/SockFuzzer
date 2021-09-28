@@ -141,7 +141,7 @@ __enum_decl(startup_rank_t, uint32_t, {
 	STARTUP_RANK_LAST           = 0xffffffff,
 });
 
-#if KASAN
+#if KASAN || LIBXNU_BUILD
 /*
  * The use of weird sections that get unmapped confuse the hell out of kasan,
  * so for KASAN leave things in regular __TEXT/__DATA segments
@@ -275,7 +275,15 @@ __enum_decl(startup_rank_t, uint32_t, {
 	    (typeof(func(a))(*)(const void *))func
 #endif
 
-
+#ifdef LIBXNU_BUILD
+#define __STARTUP1(name, line, subsystem, rank, func, a, b) \
+	__PLACE_IN_SECTION(STARTUP_HOOK_SEGMENT "_" STARTUP_HOOK_SECTION) \
+	static const struct startup_entry \
+	__startup_ ## subsystem ## _entry_ ## name ## _ ## line = { \
+	    STARTUP_SUB_ ## subsystem, \
+	    rank, __STARTUP_FUNC_CAST(func, a), b, \
+	}
+#else
 #define __STARTUP1(name, line, subsystem, rank, func, a, b) \
 	__PLACE_IN_SECTION(STARTUP_HOOK_SEGMENT "," STARTUP_HOOK_SECTION) \
 	static const struct startup_entry \
@@ -283,6 +291,7 @@ __enum_decl(startup_rank_t, uint32_t, {
 	    STARTUP_SUB_ ## subsystem, \
 	    rank, __STARTUP_FUNC_CAST(func, a), b, \
 	}
+#endif
 
 #define __STARTUP(name, line, subsystem, rank, func) \
 	__STARTUP1(name, line, subsystem, rank, func, , NULL)

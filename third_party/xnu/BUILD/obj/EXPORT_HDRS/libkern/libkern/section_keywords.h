@@ -35,8 +35,13 @@
 #define __SEGMENT_START_SYM(seg)       asm("segment$start$" seg)
 #define __SEGMENT_END_SYM(seg)         asm("segment$end$" seg)
 
+#if LIBXNU_BUILD
+#define __SECTION_START_SYM(seg, sect) asm("__start_" seg "_" sect)
+#define __SECTION_END_SYM(seg, sect)   asm("__stop_" seg "_" sect)
+#else
 #define __SECTION_START_SYM(seg, sect) asm("section$start$" seg "$" sect)
 #define __SECTION_END_SYM(seg, sect)   asm("section$end$" seg "$" sect)
+#endif
 
 #if defined(__arm64__) || defined (__x86_64__)
 

@@ -38,6 +38,7 @@
 
 extern ifnet_t lo_ifp;
 
+void kernel_startup_bootstrap();
 void inpcb_timeout(void*, void*);
 void key_timehandler(void);
 void frag_timeout(void);
@@ -139,6 +140,8 @@ extern unsigned long ioctls[];
 extern int num_ioctls;
 
 __attribute__((visibility("default"))) bool initialize_network() {
+  kernel_startup_bootstrap();
+  kernel_startup_initialize_upto(STARTUP_SUB_EARLY_BOOT);
   mcache_init();
   mbinit();
   eventhandler_init();

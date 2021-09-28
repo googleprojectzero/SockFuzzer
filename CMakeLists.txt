@@ -535,18 +535,20 @@ if(DEFINED ENV{SANITIZER})
     set(FUZZER_SOURCES fuzz/fakes/san.c
                        third_party/xnu/san/kasan-memintrinsics.c
     )
-    set(FUZZER_DEFINES -DKASAN)
+    set(FUZZER_DEFINES -DKASAN=1)
   endif()
 else()
   set(FUZZER_CXX_FLAGS -fsanitize=address,fuzzer-no-link)
   set(FUZZER_LD_FLAGS -fsanitize=address)
   set(FUZZER_SOURCES fuzz/fakes/san.c third_party/xnu/san/kasan-memintrinsics.c)
-  set(FUZZER_DEFINES -DKASAN)
+  set(FUZZER_DEFINES -DKASAN=1)
 endif()
 
 # These must be built separately due to header incompatabilities
-set(OSFMK_SOURCES fuzz/fakes/zalloc.c fuzz/fakes/osfmk_stubs.c
-                  # osfmk/x86_64/loose_ends.c
+set(OSFMK_SOURCES
+  fuzz/fakes/zalloc.c
+  fuzz/fakes/osfmk_stubs.c
+  third_party/xnu/osfmk/kern/startup.c
 )
 
 set(BSD_INCLUDES
@@ -567,7 +569,7 @@ target_include_directories(osfmk PRIVATE ${OSFMK_INCLUDES})
 set_property(TARGET osfmk PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_compile_options(
   osfmk PRIVATE ${XNU_C_FLAGS} ${OSFMK_DEFINES} ${FUZZER_DEFINES}
-                ${FUZZER_CXX_FLAGS}
+                ${FUZZER_CXX_FLAGS} -DLIBXNU_BUILD=1
 )
 
 add_library(xnu SHARED ${BSD_SOURCES} ${FUZZER_SOURCES} $<TARGET_OBJECTS:osfmk>)
