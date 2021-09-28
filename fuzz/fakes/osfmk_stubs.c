@@ -29,20 +29,62 @@
 #include <kern/assert.h>
 #include <kern/counter.h>
 #include <kern/locks.h>
-#include <vm/vm_kern.h>
 #include <stdbool.h>
+#include <vm/vm_kern.h>
 
-void kheap_startup_init() {
-  assert(false);
+void kheap_startup_init() {}
+
+void zone_view_startup_init() {}
+
+void lck_attr_startup_init(struct lck_attr_startup_spec *sp) {}
+
+void lck_grp_startup_init() {}
+
+lck_attr_t *lck_attr_alloc_init() { return (void *)1; }
+
+void lck_mtx_assert() {}
+
+void lck_mtx_init() {}
+
+void lck_mtx_lock() {}
+
+void lck_spin_init() {}
+
+void lck_rw_startup_init(struct lck_rw_startup_spec *spec) {}
+
+// fake these so they aren't null but still invalid
+lck_grp_attr_t  *lck_grp_attr_alloc_init(
+void) {
+  return (void*)1;
 }
 
-void zone_view_startup_init() {
-  assert(false);
-}
+lck_grp_t       *lck_grp_alloc_init(
+	const char*             grp_name,
+	lck_grp_attr_t  *attr) {
+    return (void*)1;
+  }
 
-void lck_attr_startup_init(struct lck_attr_startup_spec *sp) { assert(false); }
+lck_rw_t         *lck_rw_alloc_init(
+	lck_grp_t               *grp,
+	lck_attr_t              *attr) { return (void*)1; }
 
-lck_attr_t* lck_attr_alloc_init() { return (void*)1; }
+lck_mtx_t        *lck_mtx_alloc_init(
+	lck_grp_t               *grp,
+	lck_attr_t              *attr) { return (void*)1; }
+
+lck_spin_t      *lck_spin_alloc_init(
+	lck_grp_t               *grp,
+	lck_attr_t              *attr) { return (void*)1; }
+
+void lck_mtx_lock_spin() {}
+
+void lck_mtx_convert_spin() {}
+
+void lck_mtx_free() {}
+
+void lck_rw_init() {}
+
+void lck_mtx_unlock() {}
 
 void lck_attr_free() {}
 

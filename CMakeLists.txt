@@ -503,6 +503,7 @@ set(BSD_SOURCES
     third_party/xnu/libkern/crypto/corecrypto_des.c
     third_party/xnu/libkern/crypto/corecrypto_sha2.c
     third_party/xnu/libkern/gen/OSAtomicOperations.c
+    third_party/xnu/libkern/os/refcnt.c
     third_party/xnu/security/mac_system.c
     fuzz/api/syscall_wrappers.c
     fuzz/api/ioctl.c

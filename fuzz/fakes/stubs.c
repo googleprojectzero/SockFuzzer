@@ -872,14 +872,6 @@ void kernel_startup_tunable_init() {
   assert(false);
 }
 
-void lck_grp_startup_init() {
-  assert(false);
-}
-
-void lck_rw_startup_init() {
-  assert(false);
-}
-
 void mac_file_notify_close() {
   assert(false);
 }
@@ -893,14 +885,6 @@ void machine_thread_function_pointers_convert_from_user() {
 }
 
 uint64_t mem_actual = 0x41414141;
-
-void os_ref_retain_locked_internal() {
-  assert(false);
-}
-
-void os_ref_retain_try_internal() {
-  assert(false);
-}
 
 void proc_min_sdk() {
   assert(false);

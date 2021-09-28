@@ -142,35 +142,6 @@ void* vfs_context_proc() { return kernproc; }
 // TODO(Ned): better timekeeping here
 uint64_t mach_continuous_time(void) { return 0; }
 
-void lck_mtx_assert() {}
-
-void lck_mtx_init() {}
-
-void lck_mtx_lock() {}
-
-void lck_spin_init() {}
-
-// fake these so they aren't null but still invalid
-void* lck_grp_attr_alloc_init() { return (void*)1; }
-
-void* lck_grp_alloc_init() { return (void*)1; }
-
-void* lck_rw_alloc_init() { return (void*)1; }
-
-void* lck_mtx_alloc_init() { return (void*)1; }
-
-void* lck_spin_alloc_init() { return (void*)1; }
-
-void lck_mtx_lock_spin() {}
-
-void lck_mtx_convert_spin() {}
-
-void lck_mtx_free() {}
-
-void lck_rw_init() {}
-
-void lck_mtx_unlock() {}
-
 // TODO: handle timer scheduling
 void timeout() { assert(false); }
 
@@ -555,26 +526,6 @@ void audit_arg_mode() {}
 long boottime_sec() { return 0; }
 void mac_socket_check_receive() {}
 void mac_socket_check_send() {}
-
-// libkern/os/refcnt.c
-// TODO(nedwill): implement these to catch refcount bugs
-void os_ref_retain_internal() {}
-
-os_ref_count_t os_ref_release_locked_internal(os_ref_atomic_t *at, struct os_refgrp *ref) {
-  return 0;
-}
-
-os_ref_count_t os_ref_release_barrier_internal(os_ref_atomic_t *at, struct os_refgrp *ref) {
-  return 0;
-}
-
-void os_ref_panic_live() {
-  while (1) {
-    assert(false);
-  }
-}
-
-void os_ref_init_count_internal() {}
 
 void kernel_debug() {}
 
