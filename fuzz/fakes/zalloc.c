@@ -207,3 +207,7 @@ void kheap_free_addr(
 	void                 *addr) {
   free(addr);
 }
+
+void *zalloc_permanent(vm_size_t size, vm_offset_t mask) {
+  return malloc(size);
+}

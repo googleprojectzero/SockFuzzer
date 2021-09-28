@@ -195,8 +195,6 @@ void kcdata_memcpy() { assert(false); }
 
 void kcdata_memory_static_init() { assert(false); }
 
-void kdebug_enable() { assert(false); }
-
 void kdp_get_interface() { assert(false); }
 
 void kdp_is_in_zone() { assert(false); }
@@ -484,8 +482,6 @@ void vaddlog() { assert(false); }
 void vfs_context_create() { assert(false); }
 
 void vfs_context_rele() { assert(false); }
-
-void vm_kernel_addrperm() { assert(false); }
 
 void vm_kernel_slid_base() { assert(false); }
 
@@ -868,10 +864,6 @@ void cs_valid() {
   assert(false);
 }
 
-void kernel_startup_tunable_init() {
-  assert(false);
-}
-
 void mac_file_notify_close() {
   assert(false);
 }
@@ -912,10 +904,6 @@ void task_set_filter_msg_flag() {
 }
 
 void thread_zone() {
-  assert(false);
-}
-
-void zalloc_permanent() {
   assert(false);
 }
 

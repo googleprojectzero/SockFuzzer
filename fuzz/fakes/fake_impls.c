@@ -38,6 +38,7 @@
 
 #include "bsd/net/nwk_wq.h"
 #include "bsd/sys/_types/_timeval.h"
+#include "bsd/sys/kdebug_kernel.h"
 #include "bsd/sys/kernel_types.h"
 #include "bsd/sys/malloc.h"
 #include "bsd/sys/resource.h"
@@ -566,11 +567,15 @@ proc_limitgetcur(proc_t p, int which, boolean_t to_lock_proc) {
 task_t proc_task() { return TASK_NULL; }
 
 vm_offset_t current_percpu_base(void) {
-  assert(false);
   return 0;
 }
 
 int proc_pidversion(proc_t p) {
   assert(false);
   return 0;
+}
+
+unsigned int kdebug_enable = 0;
+void kernel_debug_string_early(const char *message) {
+  printf("kernel_debug_string_early: %s\n", message);
 }

@@ -297,6 +297,7 @@ __startup_func
 void
 sysctl_register_oid_early(struct sysctl_oid *oidp)
 {
+	return;
 	assert((oidp->oid_kind & CTLFLAG_OID2) &&
 	    (oidp->oid_kind & CTLFLAG_PERMANENT) &&
 	    oidp->oid_version == SYSCTL_OID_VERSION);
