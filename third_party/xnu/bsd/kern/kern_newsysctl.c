@@ -300,7 +300,7 @@ sysctl_register_oid_early(struct sysctl_oid *oidp)
 	assert((oidp->oid_kind & CTLFLAG_OID2) &&
 	    (oidp->oid_kind & CTLFLAG_PERMANENT) &&
 	    oidp->oid_version == SYSCTL_OID_VERSION);
-	assert(startup_phase < STARTUP_SUB_SYSCTL);
+	// assert(startup_phase < STARTUP_SUB_SYSCTL);
 
 	/*
 	 * Clear the flag so that callers can use sysctl_register_oid_early

@@ -328,7 +328,7 @@ set(LIBFUZZER_HEADERS
 add_library(fuzzer STATIC ${LIBFUZZER_SOURCES} ${LIBFUZZER_HEADERS})
 target_compile_options(fuzzer PRIVATE -g -std=c++11 -Werror)
 
-set(XNU_SOURCES
+set(BSD_SOURCES
     third_party/xnu/bsd/conf/param.c
     third_party/xnu/bsd/kern/kern_asl.c
     third_party/xnu/bsd/kern/kern_control.c
@@ -569,7 +569,7 @@ target_compile_options(
                 ${FUZZER_CXX_FLAGS}
 )
 
-add_library(xnu SHARED ${XNU_SOURCES} ${FUZZER_SOURCES} $<TARGET_OBJECTS:osfmk>)
+add_library(xnu SHARED ${BSD_SOURCES} ${FUZZER_SOURCES} $<TARGET_OBJECTS:osfmk>)
 
 if(APPLE)
   # Dynamic lookups are needed for us to link correctly when we have mutually
@@ -595,7 +595,7 @@ if(NOT DEFINED ENV{SANITIZER} AND NOT APPLE)
                       -fprofile-instr-generate -fcoverage-mapping
   )
 
-  add_library(xnu-cov SHARED ${XNU_SOURCES} $<TARGET_OBJECTS:osfmk-cov>)
+  add_library(xnu-cov SHARED ${BSD_SOURCES} $<TARGET_OBJECTS:osfmk-cov>)
   target_include_directories(xnu-cov PRIVATE ${BSD_INCLUDES})
   set_target_properties(xnu-cov PROPERTIES C_VISIBILITY_PRESET hidden)
   target_compile_options(

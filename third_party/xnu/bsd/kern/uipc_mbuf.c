@@ -1041,12 +1041,12 @@ mbuf_mtypes_sync(boolean_t locked)
 		LCK_MTX_ASSERT(mbuf_mlock, LCK_MTX_ASSERT_OWNED);
 	}
 
-	mtc = *PERCPU_GET_MASTER(mbuf_mtypes);
-	percpu_foreach_secondary(mtype, mbuf_mtypes) {
-		for (int n = 0; n < MT_MAX; n++) {
-			mtc.cpu_mtypes[n] += mtype->cpu_mtypes[n];
-		}
-	}
+	// mtc = *PERCPU_GET_MASTER(mbuf_mtypes);
+	// percpu_foreach_secondary(mtype, mbuf_mtypes) {
+	// 	for (int n = 0; n < MT_MAX; n++) {
+	// 		mtc.cpu_mtypes[n] += mtype->cpu_mtypes[n];
+	// 	}
+	// }
 
 	if (!locked) {
 		lck_mtx_lock(mbuf_mlock);

@@ -1,1 +1,1 @@
-#define CONFIG_DTRACE 1
+#define CONFIG_DTRACE 0

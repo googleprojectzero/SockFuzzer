@@ -27,6 +27,9 @@
  */
 
 #include <kern/assert.h>
+#include <kern/counter.h>
+#include <kern/locks.h>
+#include <vm/vm_kern.h>
 #include <stdbool.h>
 
 void kheap_startup_init() {
@@ -34,5 +37,41 @@ void kheap_startup_init() {
 }
 
 void zone_view_startup_init() {
+  assert(false);
+}
+
+void lck_attr_startup_init(struct lck_attr_startup_spec *sp) { assert(false); }
+
+lck_attr_t* lck_attr_alloc_init() { return (void*)1; }
+
+void lck_attr_free() {}
+
+void lck_attr_setdebug() {}
+
+OS_OVERLOADABLE
+uint64_t counter_load(struct generic_counter_t *counter) {
+  assert(false);
+}
+
+int32_t sysctl_get_bound_cpuid(void) {
+  assert(false);
+}
+
+kern_return_t sysctl_thread_bind_cpuid(int32_t cpuid) {
+  assert(false);
+}
+
+kern_return_t
+kernel_memory_allocate(
+	vm_map_t        map,
+	vm_offset_t     *addrp,
+	vm_size_t       size,
+	vm_offset_t     mask,
+	kma_flags_t     flags,
+	vm_tag_t        tag) {
+  assert(false);
+}
+
+void lck_mtx_startup_init(struct lck_mtx_startup_spec *spec) {
   assert(false);
 }

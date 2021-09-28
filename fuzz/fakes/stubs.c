@@ -823,7 +823,7 @@ void thread_deallocate_safe() { assert(false); }
 
 void vm_kernel_addrhash() { assert(false); }
 
-void _vm_kernel_addrhash() { assert(false); }
+void _vm_kernel_addrhash_XNU_INTERNAL() { assert(false); }
 
 void thread_add_servicer_override() { assert(false); }
 

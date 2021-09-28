@@ -918,14 +918,14 @@ extern void     zone_fill_initially(
  * Note: all values passed to zfree() might be in the element to be freed,
  *       temporaries must be taken, and the resetting to be done prior to free.
  */
-#define zfree(zone, elem) ({ \
-	_Static_assert(sizeof(elem) == sizeof(void *), "elem isn't pointer sized"); \
-	__auto_type __zfree_zone = (zone); \
-	__auto_type __zfree_eptr = &(elem); \
-	__auto_type __zfree_elem = *__zfree_eptr; \
-	*__zfree_eptr = (__typeof__(__zfree_elem))NULL; \
-	(zfree)(__zfree_zone, (void *)__zfree_elem); \
-})
+// #define zfree(zone, elem) ({ \
+// 	_Static_assert(sizeof(elem) == sizeof(void *), "elem isn't pointer sized"); \
+// 	__auto_type __zfree_zone = (zone); \
+// 	__auto_type __zfree_eptr = &(elem); \
+// 	__auto_type __zfree_elem = *__zfree_eptr; \
+// 	*__zfree_eptr = (__typeof__(__zfree_elem))NULL; \
+// 	(zfree)(__zfree_zone, (void *)__zfree_elem); \
+// })
 
 struct zone_create_startup_spec {
 	zone_t                 *z_var;

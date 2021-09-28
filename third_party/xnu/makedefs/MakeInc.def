@@ -175,6 +175,10 @@ WARNFLAGS_STD := \
 	-Wno-used-but-marked-unused \
 	-Wno-variadic-macros \
 	-Wno-vla \
+	-Wno-void-pointer-to-int-cast \
+	-Wno-suggest-override \
+	-Wno-suggest-destructor-override \
+	-Wno-four-char-constants \
 	-Wno-zero-length-array
 
 # When a new clang has new warnings disable them here until the kernel is fixed.

@@ -155,8 +155,6 @@ void* lck_grp_attr_alloc_init() { return (void*)1; }
 
 void* lck_grp_alloc_init() { return (void*)1; }
 
-void* lck_attr_alloc_init() { return (void*)1; }
-
 void* lck_rw_alloc_init() { return (void*)1; }
 
 void* lck_mtx_alloc_init() { return (void*)1; }
@@ -391,8 +389,6 @@ void lck_grp_attr_free() {}
 
 void lck_grp_free() {}
 
-void lck_attr_free() {}
-
 void lck_rw_lock_exclusive() {}
 
 void timevaladd() {}
@@ -473,8 +469,6 @@ void nwk_wq_enqueue(struct nwk_wq_entry* nwk_item) {
   nwk_item->func(nwk_item->arg);
   free(nwk_item);
 }
-
-void lck_attr_setdebug() {}
 
 int ppsratecheck() { return 1; }
 
@@ -565,14 +559,28 @@ void mac_socket_check_send() {}
 // libkern/os/refcnt.c
 // TODO(nedwill): implement these to catch refcount bugs
 void os_ref_retain_internal() {}
-void os_ref_release_locked_internal() {}
-void os_ref_release_barrier_internal() {}
-void os_ref_panic_live() {}
+
+os_ref_count_t os_ref_release_locked_internal(os_ref_atomic_t *at, struct os_refgrp *ref) {
+  return 0;
+}
+
+os_ref_count_t os_ref_release_barrier_internal(os_ref_atomic_t *at, struct os_refgrp *ref) {
+  return 0;
+}
+
+void os_ref_panic_live() {
+  while (1) {
+    assert(false);
+  }
+}
+
 void os_ref_init_count_internal() {}
 
 void kernel_debug() {}
 
 void lck_rw_unlock_shared() {}
+kern_return_t kmem_alloc_contig() { assert(false); }
+uint32_t ipc_control_port_options;
 
 bool current_task_can_use_restricted_in_port() { return true; }
 
@@ -605,3 +613,13 @@ proc_limitgetcur(proc_t p, int which, boolean_t to_lock_proc) {
 }
 
 task_t proc_task() { return TASK_NULL; }
+
+vm_offset_t current_percpu_base(void) {
+  assert(false);
+  return 0;
+}
+
+int proc_pidversion(proc_t p) {
+  assert(false);
+  return 0;
+}
