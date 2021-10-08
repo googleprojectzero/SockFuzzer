@@ -485,6 +485,7 @@ if(DEFINED ENV{SANITIZER})
 else()
   set(FUZZER_CXX_FLAGS -fsanitize=address,fuzzer-no-link)
   set(FUZZER_LD_FLAGS -fsanitize=address,fuzzer)
+  set(LIB_FUZZING_ENGINE -fsanitize=fuzzer)
   set(FUZZER_SOURCES fuzz/fakes/san.c third_party/xnu/san/kasan-memintrinsics.c)
   set(FUZZER_DEFINES -DKASAN=1)
 endif()
@@ -600,13 +601,14 @@ target_compile_options(
 )
 if(APPLE)
   target_link_libraries(
-    net_fuzzer ${FUZZER_LD_FLAGS} xnu protobuf-mutator
+    net_fuzzer ${FUZZER_LD_FLAGS} $ENV{LIB_FUZZING_ENGINE} xnu protobuf-mutator
     ${Protobuf_LIBRARIES}
   )
 else()
   target_link_libraries(
     net_fuzzer
     ${FUZZER_LD_FLAGS}
+    $ENV{LIB_FUZZING_ENGINE}
     xnu
     protobuf-mutator
     ${Protobuf_LIBRARIES}
