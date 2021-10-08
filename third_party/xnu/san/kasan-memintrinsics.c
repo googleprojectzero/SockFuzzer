@@ -44,6 +44,7 @@ __asan_bcopy(const void *src, void *dst, size_t sz)
 	__nosan_bcopy(src, dst, sz);
 }
 
+#ifndef LIBXNU_BUILD
 void *
 __asan_memmove(void *src, const void *dst, size_t sz)
 {
@@ -66,6 +67,7 @@ __asan_memset(void *dst, int c, size_t sz)
 	kasan_check_range(dst, sz, TYPE_MEMW);
 	return __nosan_memset(dst, c, sz);
 }
+#endif
 
 void
 __asan_bzero(void *dst, size_t sz)

@@ -30,6 +30,7 @@ project(libxnu)
 set(CMAKE_C_COMPILER clang)
 set(CMAKE_CXX_COMPILER clang++)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_BUILD_RPATH_USE_ORIGIN true)
 
 # Force colorful output
 add_compile_options(-fcolor-diagnostics)
@@ -276,58 +277,6 @@ set(XNU_C_FLAGS
     ${XNU_DEFINES}
 )
 
-set(LIBFUZZER_SOURCES
-    third_party/fuzzer/FuzzerCrossOver.cpp
-    third_party/fuzzer/FuzzerDataFlowTrace.cpp
-    third_party/fuzzer/FuzzerDriver.cpp
-    third_party/fuzzer/FuzzerExtFunctionsDlsym.cpp
-    third_party/fuzzer/FuzzerExtFunctionsWeak.cpp
-    third_party/fuzzer/FuzzerExtFunctionsWindows.cpp
-    third_party/fuzzer/FuzzerExtraCounters.cpp
-    third_party/fuzzer/FuzzerFork.cpp
-    third_party/fuzzer/FuzzerIO.cpp
-    third_party/fuzzer/FuzzerIOPosix.cpp
-    third_party/fuzzer/FuzzerIOWindows.cpp
-    third_party/fuzzer/FuzzerLoop.cpp
-    third_party/fuzzer/FuzzerMain.cpp
-    third_party/fuzzer/FuzzerMerge.cpp
-    third_party/fuzzer/FuzzerMutate.cpp
-    third_party/fuzzer/FuzzerSHA1.cpp
-    third_party/fuzzer/FuzzerTracePC.cpp
-    third_party/fuzzer/FuzzerUtil.cpp
-    third_party/fuzzer/FuzzerUtilDarwin.cpp
-    third_party/fuzzer/FuzzerUtilFuchsia.cpp
-    third_party/fuzzer/FuzzerUtilLinux.cpp
-    third_party/fuzzer/FuzzerUtilPosix.cpp
-    third_party/fuzzer/FuzzerUtilWindows.cpp
-)
-
-set(LIBFUZZER_HEADERS
-    third_party/fuzzer/FuzzerBuiltins.h
-    third_party/fuzzer/FuzzerBuiltinsMsvc.h
-    third_party/fuzzer/FuzzerCommand.h
-    third_party/fuzzer/FuzzerCorpus.h
-    third_party/fuzzer/FuzzerDataFlowTrace.h
-    third_party/fuzzer/FuzzerDefs.h
-    third_party/fuzzer/FuzzerDictionary.h
-    third_party/fuzzer/FuzzerExtFunctions.h
-    third_party/fuzzer/FuzzerFork.h
-    third_party/fuzzer/FuzzerInterface.h
-    third_party/fuzzer/FuzzerInternal.h
-    third_party/fuzzer/FuzzerIO.h
-    third_party/fuzzer/FuzzerMerge.h
-    third_party/fuzzer/FuzzerMutate.h
-    third_party/fuzzer/FuzzerOptions.h
-    third_party/fuzzer/FuzzerRandom.h
-    third_party/fuzzer/FuzzerSHA1.h
-    third_party/fuzzer/FuzzerTracePC.h
-    third_party/fuzzer/FuzzerUtil.h
-    third_party/fuzzer/FuzzerValueBitMap.h
-)
-
-add_library(fuzzer STATIC ${LIBFUZZER_SOURCES} ${LIBFUZZER_HEADERS})
-target_compile_options(fuzzer PRIVATE -g -std=c++11 -Werror)
-
 set(BSD_SOURCES
     third_party/xnu/bsd/conf/param.c
     third_party/xnu/bsd/kern/kern_asl.c
@@ -532,14 +481,10 @@ set(XNU_INCLUDES
 # already pass the build CFLAGs/LDFLAGS it wants via the environment variables.
 if(DEFINED ENV{SANITIZER})
   if($ENV{SANITIZER} MATCHES "address")
-    set(FUZZER_SOURCES fuzz/fakes/san.c
-                       third_party/xnu/san/kasan-memintrinsics.c
-    )
-    set(FUZZER_DEFINES -DKASAN=1)
   endif()
 else()
   set(FUZZER_CXX_FLAGS -fsanitize=address,fuzzer-no-link)
-  set(FUZZER_LD_FLAGS -fsanitize=address)
+  set(FUZZER_LD_FLAGS -fsanitize=address,fuzzer)
   set(FUZZER_SOURCES fuzz/fakes/san.c third_party/xnu/san/kasan-memintrinsics.c)
   set(FUZZER_DEFINES -DKASAN=1)
 endif()
@@ -573,15 +518,21 @@ target_compile_options(
 )
 
 add_library(xnu SHARED ${BSD_SOURCES} ${FUZZER_SOURCES} $<TARGET_OBJECTS:osfmk>)
+set_property(TARGET xnu PROPERTY C_VISIBILITY_PRESET hidden)
+set_property(TARGET xnu PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 if(APPLE)
   # Dynamic lookups are needed for us to link correctly when we have mutually
   # dependent targets (net_fuzzer and xnu)
-  target_link_options(xnu PRIVATE -undefined dynamic_lookup)
+  target_link_options(xnu PRIVATE -Bsymbolic -undefined dynamic_lookup)
+else()
+  target_link_options(
+    xnu PRIVATE -Bsymbolic
+  )
 endif(APPLE)
 
+
 target_include_directories(xnu PRIVATE ${BSD_INCLUDES})
-set_target_properties(xnu PROPERTIES C_VISIBILITY_PRESET hidden)
 target_compile_options(
   xnu PRIVATE ${XNU_C_FLAGS} ${BSD_DEFINES} ${SAN_DEFINES} -DLIBXNU_BUILD=1
               ${FUZZER_DEFINES} ${FUZZER_CXX_FLAGS}
@@ -605,6 +556,9 @@ if(NOT DEFINED ENV{SANITIZER} AND NOT APPLE)
     xnu-cov
     PRIVATE ${XNU_C_FLAGS} ${BSD_DEFINES} ${SAN_DEFINES} -DLIBXNU_BUILD=1
             -fprofile-instr-generate -fcoverage-mapping
+  )
+  target_link_options(
+    xnu-cov PRIVATE -Bsymbolic
   )
 endif()
 
@@ -646,7 +600,7 @@ target_compile_options(
 )
 if(APPLE)
   target_link_libraries(
-    net_fuzzer ${FUZZER_LD_FLAGS} xnu fuzzer protobuf-mutator
+    net_fuzzer ${FUZZER_LD_FLAGS} xnu protobuf-mutator
     ${Protobuf_LIBRARIES}
   )
 else()
@@ -654,7 +608,6 @@ else()
     net_fuzzer
     ${FUZZER_LD_FLAGS}
     xnu
-    fuzzer
     protobuf-mutator
     ${Protobuf_LIBRARIES}
     pthread
@@ -685,7 +638,7 @@ else()
     target_link_libraries(
       net_cov
       xnu-cov
-      fuzzer
+      -fsanitize=fuzzer
       -fprofile-instr-generate
       -fcoverage-mapping
       protobuf-mutator
