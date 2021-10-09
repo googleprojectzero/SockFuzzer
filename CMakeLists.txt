@@ -481,6 +481,10 @@ set(XNU_INCLUDES
 # already pass the build CFLAGs/LDFLAGS it wants via the environment variables.
 if(DEFINED ENV{SANITIZER})
   if($ENV{SANITIZER} MATCHES "address")
+    set(FUZZER_SOURCES fuzz/fakes/san.c
+                       third_party/xnu/san/kasan-memintrinsics.c
+    )
+    set(FUZZER_DEFINES -DKASAN=1)
   endif()
 else()
   set(FUZZER_CXX_FLAGS -fsanitize=address,fuzzer-no-link)
