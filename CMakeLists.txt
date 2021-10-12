@@ -25,10 +25,12 @@
 # @APPLE_OSREFERENCE_LICENSE_HEADER_END@
 
 cmake_minimum_required(VERSION 3.5.1)
-project(libxnu)
+project(sockfuzzer)
 
 set(CMAKE_C_COMPILER clang)
 set(CMAKE_CXX_COMPILER clang++)
+# TODO(nedwill): We should not depend directly on third_party module paths
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/third_party/libprotobuf-mutator/cmake/external)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(Protobuf_USE_STATIC_LIBS true)
 
@@ -515,21 +517,21 @@ set(OSFMK_INCLUDES
 # different build flags into the libxnu library
 add_library(osfmk OBJECT ${OSFMK_SOURCES})
 target_include_directories(osfmk PRIVATE ${OSFMK_INCLUDES})
-# set_target_properties(osfmk PROPERTIES C_VISIBILITY_PRESET hidden)
+set_property(TARGET osfmk PROPERTY C_VISIBILITY_PRESET hidden)
 set_property(TARGET osfmk PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_compile_options(
   osfmk PRIVATE ${XNU_C_FLAGS} ${OSFMK_DEFINES} ${FUZZER_DEFINES}
                 ${FUZZER_CXX_FLAGS} -DLIBXNU_BUILD=1
 )
 
-add_library(xnu OBJECT ${BSD_SOURCES} ${FUZZER_SOURCES})
-set_property(TARGET xnu PROPERTY C_VISIBILITY_PRESET hidden)
-set_property(TARGET xnu PROPERTY POSITION_INDEPENDENT_CODE ON)
+add_library(bsd OBJECT ${BSD_SOURCES} ${FUZZER_SOURCES})
+set_property(TARGET bsd PROPERTY C_VISIBILITY_PRESET hidden)
+set_property(TARGET bsd PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 add_custom_command(
   OUTPUT libxnu_relocatable.o
-  COMMAND ld.lld -r $<TARGET_OBJECTS:xnu> $<TARGET_OBJECTS:osfmk> -o libxnu_relocatable.o && objcopy --localize-hidden libxnu_relocatable.o
-  DEPENDS $<TARGET_OBJECTS:xnu> $<TARGET_OBJECTS:osfmk>
+  COMMAND ld.lld -r $<TARGET_OBJECTS:bsd> $<TARGET_OBJECTS:osfmk> -o libxnu_relocatable.o && objcopy --localize-hidden libxnu_relocatable.o
+  DEPENDS $<TARGET_OBJECTS:bsd> $<TARGET_OBJECTS:osfmk>
   COMMAND_EXPAND_LISTS
 )
 
@@ -540,36 +542,34 @@ if(APPLE)
   target_link_options(xnu PRIVATE -Bsymbolic -undefined dynamic_lookup)
 endif(APPLE)
 
-target_include_directories(xnu PRIVATE ${BSD_INCLUDES})
+target_include_directories(bsd PRIVATE ${BSD_INCLUDES})
 target_compile_options(
-  xnu PRIVATE ${XNU_C_FLAGS} ${BSD_DEFINES} ${SAN_DEFINES} -DLIBXNU_BUILD=1
+  bsd PRIVATE ${XNU_C_FLAGS} ${BSD_DEFINES} ${SAN_DEFINES} -DLIBXNU_BUILD=1
               ${FUZZER_DEFINES} ${FUZZER_CXX_FLAGS}
 )
 
 # Only build coverage builds locally on Linux.
 if(NOT DEFINED ENV{SANITIZER} AND NOT APPLE)
-  add_library(osfmk-cov OBJECT ${OSFMK_SOURCES})
-  target_include_directories(osfmk-cov PRIVATE ${OSFMK_INCLUDES})
-  # set_target_properties(osfmk-cov PROPERTIES C_VISIBILITY_PRESET hidden)
-  set_property(TARGET osfmk-cov PROPERTY POSITION_INDEPENDENT_CODE ON)
+  add_library(osfmk_cov OBJECT ${OSFMK_SOURCES})
+  target_include_directories(osfmk_cov PRIVATE ${OSFMK_INCLUDES})
+  set_target_properties(osfmk_cov PROPERTIES C_VISIBILITY_PRESET hidden)
+  set_property(TARGET osfmk_cov PROPERTY POSITION_INDEPENDENT_CODE ON)
   target_compile_options(
-    osfmk-cov PRIVATE ${XNU_C_FLAGS} ${OSFMK_DEFINES} -DLIBXNU_BUILD=1
+    osfmk_cov PRIVATE ${XNU_C_FLAGS} ${OSFMK_DEFINES} -DLIBXNU_BUILD=1
                       -fprofile-instr-generate -fcoverage-mapping
   )
 
-  add_library(xnu-cov STATIC ${BSD_SOURCES} $<TARGET_OBJECTS:osfmk-cov>)
-  target_include_directories(xnu-cov PRIVATE ${BSD_INCLUDES})
-  set_target_properties(xnu-cov PROPERTIES C_VISIBILITY_PRESET hidden)
+  add_library(bsd_cov STATIC ${BSD_SOURCES} $<TARGET_OBJECTS:osfmk_cov>)
+  target_include_directories(bsd_cov PRIVATE ${BSD_INCLUDES})
+  set_target_properties(bsd_cov PROPERTIES C_VISIBILITY_PRESET hidden)
   target_compile_options(
-    xnu-cov
+    bsd_cov
     PRIVATE ${XNU_C_FLAGS} ${BSD_DEFINES} ${SAN_DEFINES} -DLIBXNU_BUILD=1
             -fprofile-instr-generate -fcoverage-mapping
   )
 endif()
 
-find_package(Protobuf REQUIRED)
-include_directories(${PROTOBUF_INCLUDE_DIRS})
-include_directories(${CMAKE_CURRENT_BINARY_DIR})
+include(protobuf)
 
 # TODO(nedwill): Import CMakeLists.txt from libprotobuf-mutator folder
 add_library(
@@ -591,10 +591,10 @@ target_compile_options(protobuf-mutator PRIVATE -std=c++11)
 if(APPLE)
   target_link_libraries(protobuf-mutator)
 else()
-  target_link_libraries(protobuf-mutator protobuf)
+  target_link_libraries(protobuf-mutator ${Protobuf_LIBRARIES})
 endif(APPLE)
 
-add_library(bsd STATIC
+add_library(libbsd STATIC
   third_party/libbsd/src/strlcat.c
   third_party/libbsd/src/strlcpy.c)
 
@@ -602,13 +602,14 @@ protobuf_generate_cpp(NET_PROTO_SRCS NET_PROTO_HDRS fuzz/net_fuzzer.proto)
 add_executable(
   net_fuzzer fuzz/net_fuzzer.cc ${NET_PROTO_SRCS} ${NET_PROTO_HDRS} libxnu_relocatable.o
 )
-add_dependencies(net_fuzzer xnu)
+add_dependencies(net_fuzzer bsd)
 
 target_include_directories(net_fuzzer PRIVATE third_party/libprotobuf-mutator)
 target_compile_options(
   net_fuzzer PRIVATE -g -std=c++11 -Werror -Wno-address-of-packed-member
                      ${FUZZER_CXX_FLAGS}
 )
+
 if(APPLE)
   target_link_libraries(
     net_fuzzer ${FUZZER_LD_FLAGS} $ENV{LIB_FUZZING_ENGINE} protobuf-mutator
@@ -622,7 +623,7 @@ else()
     protobuf-mutator
     ${Protobuf_LIBRARIES}
     pthread
-    bsd
+    libbsd
   )
 endif(APPLE)
 
@@ -640,15 +641,15 @@ else()
   if(NOT APPLE)
     add_custom_command(
       OUTPUT libxnu_cov_relocatable.o
-      COMMAND ld.lld -r $<TARGET_OBJECTS:xnu-cov> $<TARGET_OBJECTS:osfmk-cov> -o libxnu_cov_relocatable.o && objcopy --localize-hidden libxnu_cov_relocatable.o
-      DEPENDS $<TARGET_OBJECTS:xnu-cov> $<TARGET_OBJECTS:osfmk-cov>
+      COMMAND ld.lld -r $<TARGET_OBJECTS:bsd_cov> $<TARGET_OBJECTS:osfmk_cov> -o libxnu_cov_relocatable.o && objcopy --localize-hidden libxnu_cov_relocatable.o
+      DEPENDS $<TARGET_OBJECTS:bsd_cov> $<TARGET_OBJECTS:osfmk_cov>
       COMMAND_EXPAND_LISTS
     )
 
     add_executable(
       net_cov fuzz/net_fuzzer.cc ${NET_PROTO_SRCS} ${NET_PROTO_HDRS} libxnu_cov_relocatable.o
     )
-    add_dependencies(net_cov xnu-cov)
+    add_dependencies(net_cov bsd_cov)
     target_include_directories(net_cov PRIVATE third_party/libprotobuf-mutator)
     target_compile_options(
       net_cov PRIVATE -g -std=c++11 -Werror -Wno-address-of-packed-member
@@ -661,7 +662,7 @@ else()
       -fcoverage-mapping
       protobuf-mutator
       ${Protobuf_LIBRARIES}
-      bsd
+      libbsd
       pthread
       -Wl,--exclude-libs,ALL
     )
