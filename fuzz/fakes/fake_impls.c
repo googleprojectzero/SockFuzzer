@@ -38,6 +38,7 @@
 
 #include "bsd/net/nwk_wq.h"
 #include "bsd/sys/_types/_timeval.h"
+#include "bsd/sys/conf.h"
 #include "bsd/sys/kdebug_kernel.h"
 #include "bsd/sys/kernel_types.h"
 #include "bsd/sys/malloc.h"
@@ -171,8 +172,9 @@ unsigned long RandomULong() {
 // TODO: threading
 int kernel_thread_start() { return 0; }
 
-// TODO: can reach these
-void cdevsw_add() {}
+int cdevsw_add(int major, const struct cdevsw *cdevsw) {
+  return 0;
+}
 
 void devfs_make_node() {}
 
