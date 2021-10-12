@@ -2,26 +2,27 @@
 
 # docker build --pull -t builder .
 # docker run -t -i -v $PWD:/source builder /bin/bash
-FROM debian:testing
+FROM gcr.io/oss-fuzz-base/base-builder
 
 RUN apt-get update && apt-get install -y \
     autoconf \
-    curl \
     cmake \
     git \
     g++-multilib \
-    libbsd-dev \
-    libprotobuf-dev \
     libtool \
     ninja-build \
-    patchelf \
-    protobuf-compiler \
-    python \
-    wget
+    python
 
-# Fetch a recent clang build from Chromium
-RUN curl -s https://raw.githubusercontent.com/chromium/chromium/master/tools/clang/scripts/update.py | python - --output-dir=/clang
-ENV PATH "$PATH:/clang/bin"
+# Install Protobuf for C++ as the version in the base-builder repos may
+# be outdated.
+RUN curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v3.18.1/protobuf-cpp-3.18.1.tar.gz
+RUN tar xf protobuf-cpp-3.18.1.tar.gz
+WORKDIR $SRC/protobuf-3.18.1
+# Build statically
+RUN ./configure --disable-shared
+RUN make -j $(nproc)
+RUN make install
 
 # You can now build using cmake. I use a subdirectory "build".
+COPY build.sh $SRC
 WORKDIR /source/build

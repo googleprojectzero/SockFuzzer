@@ -491,7 +491,7 @@ if(DEFINED ENV{SANITIZER})
 else()
   set(FUZZER_CXX_FLAGS -fsanitize=address,fuzzer-no-link)
   set(FUZZER_LD_FLAGS -fsanitize=address,fuzzer)
-  set(LIB_FUZZING_ENGINE -fsanitize=fuzzer)
+  set(ENV{LIB_FUZZING_ENGINE} -fsanitize=fuzzer)
   set(FUZZER_SOURCES fuzz/fakes/san.c third_party/xnu/san/kasan-memintrinsics.c)
   set(FUZZER_DEFINES -DKASAN=1)
 endif()
@@ -569,7 +569,11 @@ if(NOT DEFINED ENV{SANITIZER} AND NOT APPLE)
   )
 endif()
 
-include(protobuf)
+# TODO(nedwill): get the local protobuf build working to support msan
+# include(protobuf)
+find_package(Protobuf REQUIRED)
+include_directories(${PROTOBUF_INCLUDE_DIRS})
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 # TODO(nedwill): Import CMakeLists.txt from libprotobuf-mutator folder
 add_library(
