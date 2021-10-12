@@ -1,0 +1,14 @@
+* Migrate portable functions from GNU/kFreeBSD's libfreebsd.
+* Add more functions used by ported packages (check openssh).
+* Add more unit tests.
+* Add missing man pages.
+  - bsd_getopt.
+  - timeconv?
+* Add a README.import file.
+* Update man pages:
+  - Document when each interface was added on every BSD, and libbsd.
+* Handle LFS properly. By default the library emits LFS objects, but might
+  be used by non-LFS objects. We should either provide foo and foo64
+  functions and appropriate mappings on _FILE_OFFSET_BITS=64,
+  _LARGEFILE_SOURCE and _LARGEFILE64_SOURCE. Or error out when the off_t
+  used by the code including us does not match a 64-bit type.

@@ -1,0 +1,197 @@
+LIBBSD_0.0 {
+  global:
+    arc4random;
+    arc4random_stir;
+    arc4random_addrandom;
+
+    bsd_getopt;
+    optreset;
+
+    errc;
+    warnc;
+    verrc;
+    vwarnc;
+
+    fgetln;
+    fmtcheck;
+    heapsort;
+    humanize_number;
+
+    inet_net_pton; /* XXX: Already provided by glibc, remove. */
+
+    getprogname;
+    setprogname;
+
+    strlcpy;
+    strlcat;
+
+    setmode;
+    getmode;
+
+    vis;
+    strvis;
+    strvisx;
+    unvis;
+    strunvis;
+    strunvisx;
+
+    /* The following functions are provided via the system libc or libmd
+     * implementations. */
+    MD5Init;
+    MD5Update;
+    MD5Pad;
+    MD5Final;
+    MD5Transform;
+    MD5End;
+    MD5File;
+    MD5FileChunk;
+    MD5Data;
+
+  local:
+    *;
+};
+
+LIBBSD_0.1 {
+    strmode;
+
+    __fdnlist; /* Private symbol, but libkvm uses it. */
+    nlist;
+} LIBBSD_0.0;
+
+LIBBSD_0.2 {
+    strtonum;
+
+    strnvis;
+    strnunvis;
+
+    dehumanize_number;
+
+    readpassphrase;
+
+    flopen;
+
+    pidfile_open;
+    pidfile_write;
+    pidfile_close;
+    pidfile_remove;
+
+    arc4random_buf;
+    arc4random_uniform;
+} LIBBSD_0.1;
+
+LIBBSD_0.3 {
+    reallocf;
+    getpeereid;
+
+    mergesort;
+    radixsort;
+    sradixsort;
+
+    fpurge;
+} LIBBSD_0.2;
+
+LIBBSD_0.4 {
+    closefrom;
+    expand_number;
+} LIBBSD_0.3;
+
+LIBBSD_0.5 {
+    fgetwln;
+    fparseln;
+
+    /* Introduced in 0.2 as a stub, implemented in 0.5. */
+    setproctitle;
+
+    strnstr;
+
+    wcslcat;
+    wcslcpy;
+} LIBBSD_0.4;
+
+LIBBSD_0.6 {
+    /* Exported to cope with the constructor+dlopen+threads mess. */
+    setproctitle_init;
+} LIBBSD_0.5;
+
+LIBBSD_0.7 {
+    getbsize;
+
+    /* This symbol might not be present on some specific systems, such
+     * as musl based ones. It might need to be removed on SOVERSION bump,
+     * as it cannot be portabily implemented everywhere. */
+    funopen;
+
+    reallocarray;
+
+    sl_init;
+    sl_add;
+    sl_free;
+    sl_find;
+
+    _time32_to_time;
+    _time_to_time32;
+    _time64_to_time;
+    _time_to_time64;
+    _time_to_long;
+    _long_to_time;
+    _time_to_int;
+    _int_to_time;
+} LIBBSD_0.6;
+
+LIBBSD_0.8 {
+    explicit_bzero;
+} LIBBSD_0.7;
+
+LIBBSD_0.9 {
+    flopenat;
+
+    pidfile_fileno;
+
+    strtoi;
+    strtou;
+
+    nvis;
+    snvis;
+    stravis;
+    strenvisx;
+    strnunvisx;
+    strsenvisx;
+    strsnvis;
+    strsnvisx;
+    strsvis;
+    strsvisx;
+    svis;
+} LIBBSD_0.8;
+
+LIBBSD_0.9.1 {
+    /* The strnvis() and strnunvis() symbols changed prototype to match
+     * the NetBSD implementation. Provided as versioned nodes in 0.9.1, and
+     * exposed here explicitly so that we can redirect at compile-time. */
+    strnvis_netbsd;
+    strnunvis_netbsd;
+} LIBBSD_0.9;
+
+LIBBSD_0.10.0 {
+    /* These BSD extensions are available on GNU systems, but not on other
+     * systems such as Windows or musl libc based ones. */
+    vwarn;
+    vwarnx;
+    warn;
+    warnx;
+    verr;
+    verrx;
+    err;
+    errx;
+} LIBBSD_0.9.1;
+
+LIBBSD_0.11.0 {
+    strnvisx;
+
+    recallocarray;
+    freezero;
+
+    gid_from_group;
+    group_from_gid;
+    uid_from_user;
+    user_from_uid;
+} LIBBSD_0.10.0;

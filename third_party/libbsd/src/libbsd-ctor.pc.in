@@ -1,0 +1,12 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: libbsd-ctor
+Description: Automatic constructor functions for libbsd
+Version: @VERSION@
+URL: https://libbsd.freedesktop.org/
+Cflags: -I${includedir}
+Libs: -L${libdir} -Wl,-z,nodlopen -Wl,-u,libbsd_init_func -lbsd-ctor
+Requires: libbsd
