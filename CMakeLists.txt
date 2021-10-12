@@ -30,7 +30,7 @@ project(libxnu)
 set(CMAKE_C_COMPILER clang)
 set(CMAKE_CXX_COMPILER clang++)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_BUILD_RPATH_USE_ORIGIN true)
+set(Protobuf_USE_STATIC_LIBS true)
 
 # Force colorful output
 add_compile_options(-fcolor-diagnostics)
@@ -522,20 +522,23 @@ target_compile_options(
                 ${FUZZER_CXX_FLAGS} -DLIBXNU_BUILD=1
 )
 
-add_library(xnu SHARED ${BSD_SOURCES} ${FUZZER_SOURCES} $<TARGET_OBJECTS:osfmk>)
+add_library(xnu OBJECT ${BSD_SOURCES} ${FUZZER_SOURCES})
 set_property(TARGET xnu PROPERTY C_VISIBILITY_PRESET hidden)
 set_property(TARGET xnu PROPERTY POSITION_INDEPENDENT_CODE ON)
 
+add_custom_command(
+  OUTPUT libxnu_relocatable.o
+  COMMAND ld.lld -r $<TARGET_OBJECTS:xnu> $<TARGET_OBJECTS:osfmk> -o libxnu_relocatable.o && objcopy --localize-hidden libxnu_relocatable.o
+  DEPENDS $<TARGET_OBJECTS:xnu> $<TARGET_OBJECTS:osfmk>
+  COMMAND_EXPAND_LISTS
+)
+
+# TODO(nedwill): fix mac build
 if(APPLE)
   # Dynamic lookups are needed for us to link correctly when we have mutually
   # dependent targets (net_fuzzer and xnu)
   target_link_options(xnu PRIVATE -Bsymbolic -undefined dynamic_lookup)
-else()
-  target_link_options(
-    xnu PRIVATE -Bsymbolic
-  )
 endif(APPLE)
-
 
 target_include_directories(xnu PRIVATE ${BSD_INCLUDES})
 target_compile_options(
@@ -554,16 +557,13 @@ if(NOT DEFINED ENV{SANITIZER} AND NOT APPLE)
                       -fprofile-instr-generate -fcoverage-mapping
   )
 
-  add_library(xnu-cov SHARED ${BSD_SOURCES} $<TARGET_OBJECTS:osfmk-cov>)
+  add_library(xnu-cov STATIC ${BSD_SOURCES} $<TARGET_OBJECTS:osfmk-cov>)
   target_include_directories(xnu-cov PRIVATE ${BSD_INCLUDES})
   set_target_properties(xnu-cov PROPERTIES C_VISIBILITY_PRESET hidden)
   target_compile_options(
     xnu-cov
     PRIVATE ${XNU_C_FLAGS} ${BSD_DEFINES} ${SAN_DEFINES} -DLIBXNU_BUILD=1
             -fprofile-instr-generate -fcoverage-mapping
-  )
-  target_link_options(
-    xnu-cov PRIVATE -Bsymbolic
   )
 endif()
 
@@ -594,10 +594,16 @@ else()
   target_link_libraries(protobuf-mutator protobuf)
 endif(APPLE)
 
+add_library(bsd STATIC
+  third_party/libbsd/src/strlcat.c
+  third_party/libbsd/src/strlcpy.c)
+
 protobuf_generate_cpp(NET_PROTO_SRCS NET_PROTO_HDRS fuzz/net_fuzzer.proto)
 add_executable(
-  net_fuzzer fuzz/net_fuzzer.cc ${NET_PROTO_SRCS} ${NET_PROTO_HDRS}
+  net_fuzzer fuzz/net_fuzzer.cc ${NET_PROTO_SRCS} ${NET_PROTO_HDRS} libxnu_relocatable.o
 )
+add_dependencies(net_fuzzer xnu)
+
 target_include_directories(net_fuzzer PRIVATE third_party/libprotobuf-mutator)
 target_compile_options(
   net_fuzzer PRIVATE -g -std=c++11 -Werror -Wno-address-of-packed-member
@@ -605,7 +611,7 @@ target_compile_options(
 )
 if(APPLE)
   target_link_libraries(
-    net_fuzzer ${FUZZER_LD_FLAGS} $ENV{LIB_FUZZING_ENGINE} xnu protobuf-mutator
+    net_fuzzer ${FUZZER_LD_FLAGS} $ENV{LIB_FUZZING_ENGINE} protobuf-mutator
     ${Protobuf_LIBRARIES}
   )
 else()
@@ -613,7 +619,6 @@ else()
     net_fuzzer
     ${FUZZER_LD_FLAGS}
     $ENV{LIB_FUZZING_ENGINE}
-    xnu
     protobuf-mutator
     ${Protobuf_LIBRARIES}
     pthread
@@ -633,9 +638,17 @@ if(DEFINED ENV{SANITIZER})
 
 else()
   if(NOT APPLE)
-    add_executable(
-      net_cov fuzz/net_fuzzer.cc ${NET_PROTO_SRCS} ${NET_PROTO_HDRS}
+    add_custom_command(
+      OUTPUT libxnu_cov_relocatable.o
+      COMMAND ld.lld -r $<TARGET_OBJECTS:xnu-cov> $<TARGET_OBJECTS:osfmk-cov> -o libxnu_cov_relocatable.o && objcopy --localize-hidden libxnu_cov_relocatable.o
+      DEPENDS $<TARGET_OBJECTS:xnu-cov> $<TARGET_OBJECTS:osfmk-cov>
+      COMMAND_EXPAND_LISTS
     )
+
+    add_executable(
+      net_cov fuzz/net_fuzzer.cc ${NET_PROTO_SRCS} ${NET_PROTO_HDRS} libxnu_cov_relocatable.o
+    )
+    add_dependencies(net_cov xnu-cov)
     target_include_directories(net_cov PRIVATE third_party/libprotobuf-mutator)
     target_compile_options(
       net_cov PRIVATE -g -std=c++11 -Werror -Wno-address-of-packed-member
@@ -643,7 +656,6 @@ else()
     )
     target_link_libraries(
       net_cov
-      xnu-cov
       -fsanitize=fuzzer
       -fprofile-instr-generate
       -fcoverage-mapping
