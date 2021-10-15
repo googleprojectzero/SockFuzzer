@@ -10,7 +10,7 @@ for your platform. For example:
 
 ```
 $ mkdir build; cd build
-$ cmake -GNinja ..
+$ CC=clang CXX=clang++ cmake -GNinja ..
 $ ninja
 ```
 

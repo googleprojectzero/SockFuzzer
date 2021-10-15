@@ -27,8 +27,6 @@
 cmake_minimum_required(VERSION 3.5.1)
 project(sockfuzzer)
 
-set(CMAKE_C_COMPILER clang)
-set(CMAKE_CXX_COMPILER clang++)
 # TODO(nedwill): We should not depend directly on third_party module paths
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/third_party/libprotobuf-mutator/cmake/external)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -570,7 +568,7 @@ if(NOT DEFINED ENV{SANITIZER} AND NOT APPLE)
 endif()
 
 # TODO(nedwill): get the local protobuf build working to support msan
-# include(protobuf)
+# add_subdirectory(third_party/libprotobuf-mutator)
 find_package(Protobuf REQUIRED)
 include_directories(${PROTOBUF_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})

@@ -23,6 +23,6 @@ RUN ./configure --disable-shared
 RUN make -j $(nproc)
 RUN make install
 
+WORKDIR $SRC
 # You can now build using cmake. I use a subdirectory "build".
 COPY build.sh $SRC
-WORKDIR /source/build
