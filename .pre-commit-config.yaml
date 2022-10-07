@@ -1,0 +1,41 @@
+# Copyright 2022 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# third_party ignored
+files: ^((?!third_party).)*$
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.2.0
+    hooks:
+    -   id: trailing-whitespace
+    -   id: end-of-file-fixer
+    -   id: check-yaml
+    -   id: check-added-large-files
+    -   id: check-merge-conflict
+    -   id: requirements-txt-fixer
+-   repo: https://github.com/psf/black
+    rev: '22.8.0'
+    hooks:
+    -   id: black
+-   repo: https://github.com/jlebar/pre-commit-hooks.git
+    rev: 62ca83ba4958da48ea44d9f24cd0aa58633376c7
+    hooks:
+    -   id: bazel-buildifier
+    -   id: clang-format-whole-file
+        types_or: [c++, c, proto]
+-   repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.7.2
+    hooks:
+    -   id: shellcheck
+        args: ["--severity=warning"]

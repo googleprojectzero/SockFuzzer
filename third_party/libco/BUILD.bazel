@@ -1,0 +1,13 @@
+cc_library(
+    name = "co",
+    srcs = [
+        "libco.c",
+    ],
+    hdrs = [
+        "amd64.c",
+        "libco.h",
+        "settings.h",
+    ],
+    includes = ["."],
+    visibility = ["//fuzz/executor:__pkg__"],
+)
