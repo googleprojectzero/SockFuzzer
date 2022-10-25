@@ -5,6 +5,9 @@ for fuzzing the network stack in userland on macOS and Linux-based hosts.
 
 # Building and Using the Fuzzer
 
+NOTE: The project is moving to a Bazel-based build system. The following steps
+work for now but will be updated once the new build system is published.
+
 Build the fuzzer the same way you would typically build a project using CMake
 for your platform. For example:
 

@@ -1,0 +1,4 @@
+BasedOnStyle:  Google
+AllowShortBlocksOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Inline
+ReflowComments: false
