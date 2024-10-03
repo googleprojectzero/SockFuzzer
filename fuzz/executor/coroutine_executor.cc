@@ -1,4 +1,4 @@
-// Copyright 2022 Google LLC
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,17 +25,24 @@
 #include <sanitizer/common_interface_defs.h>
 #endif
 
-const int KERNEL_STACK_SIZE = 4096 * 16;
+const int KERNEL_STACK_SIZE = 4096 * 32;
 
-#include "third_party/libco/libco.h"
+extern bool is_verbose;
+
+#include <libco.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <sys/mman.h>
 
-static CoroutineExecutor *g_coroutine_executor;
+namespace {
 
-static void ThreadStart() {
+// Used to access CoroutineExecutor from cothreads
+CoroutineExecutor *g_coroutine_executor;
+
+void ThreadStart() {
   g_coroutine_executor->CallPendingFunctionThenSwap();
+}
+
 }
 
 CoroutineExecutor::CoroutineExecutor() : main_thread_(co_active()) {
@@ -43,7 +50,9 @@ CoroutineExecutor::CoroutineExecutor() : main_thread_(co_active()) {
   g_coroutine_executor = this;
 }
 
-CoroutineExecutor::~CoroutineExecutor() { g_coroutine_executor = nullptr; }
+CoroutineExecutor::~CoroutineExecutor() {
+  g_coroutine_executor = nullptr;
+}
 
 ThreadHandle CoroutineExecutor::CreateThread(std::function<void()> target) {
   void *mapping =
@@ -104,6 +113,10 @@ void CoroutineExecutor::SwitchTo(ThreadHandle handle) {
   if (co_active() == cothread) {
     // Already on requested thread
     return;
+  }
+
+  if (is_verbose) {
+    SetBacktrace(GetCurrentThreadHandle());
   }
 
 #if __has_feature(address_sanitizer)

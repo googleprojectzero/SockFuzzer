@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Google LLC
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,15 @@
 
 #include <deque>
 #include <memory>
+#include <unordered_map>
+#include <unordered_set>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-
-#include "executor/executor.h"
+#include "third_party/concurrence/executor/executor.h"
+#include "third_party/concurrence/scheduler/scheduler.h"
+#include "third_party/concurrence/sync/mutex.h"
+#include "third_party/concurrence/sync/rwlock.h"
 
 class Scheduler;
 class Sync;
@@ -57,7 +61,7 @@ class SyncTracker {
  private:
   Scheduler *scheduler_;
   absl::flat_hash_map<Sync *, std::unique_ptr<Sync>> all_primitives_;
-#ifdef NDEBUG
+#ifndef NDEBUG
   absl::flat_hash_set<Sync *> session_tracked_primitives_;
 #endif
 };

@@ -1,0 +1,633 @@
+workspace(name = "sockfuzzer")
+
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+SKYLIB_VERSION = "1.4.1"
+
+http_archive(
+    name = "bazel_skylib",
+    sha256 = "b8a1527901774180afc798aeb28c4634bdccf19c4d98e7bdd1ce79d1fe9aaad7",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/{version}/bazel-skylib-{version}.tar.gz".format(version = SKYLIB_VERSION),
+        "https://github.com/bazelbuild/bazel-skylib/releases/download/{version}/bazel-skylib-{version}.tar.gz".format(version = SKYLIB_VERSION),
+    ],
+)
+
+http_archive(
+    name = "rules_foreign_cc",
+    sha256 = "476303bd0f1b04cc311fc258f1708a5f6ef82d3091e53fd1977fa20383425a6a",
+    strip_prefix = "rules_foreign_cc-0.10.1",
+    url = "https://github.com/bazelbuild/rules_foreign_cc/releases/download/0.10.1/rules_foreign_cc-0.10.1.tar.gz",
+)
+
+load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
+
+rules_foreign_cc_dependencies()
+
+http_archive(
+    name = "rules_cc",
+    sha256 = "d75a040c32954da0d308d3f2ea2ba735490f49b3a7aa3e4b40259ca4b814f825",
+    urls = ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.10-rc1/rules_cc-0.0.10-rc1.tar.gz"],
+)
+
+# We use nixpkgs to help us reduce the amount of projects we need to support with the Bazel rules.
+# It may be better to migrate to something lower level like `rules_foreign_cc` in the future, but
+# this current solution despite its complexity and nix dependency brings maintained and up-to-date
+# packages to our project.
+http_archive(
+    name = "io_tweag_rules_nixpkgs",
+    sha256 = "f99b8832499d508d9c519d219636a438252d1c5a43dbb655fa2231fd995a85d8",
+    strip_prefix = "rules_nixpkgs-b6cf1734d4c52dba33f942d6b5cd5538dfa6e0b6",
+    url = "https://github.com/tweag/rules_nixpkgs/archive/b6cf1734d4c52dba33f942d6b5cd5538dfa6e0b6.tar.gz",
+)
+
+# load everything that rules_nixpkgs rules need to work
+load("@io_tweag_rules_nixpkgs//nixpkgs:repositories.bzl", "rules_nixpkgs_dependencies")
+
+rules_nixpkgs_dependencies()
+
+load("@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl", "nixpkgs_cc_configure", "nixpkgs_local_repository", "nixpkgs_package")
+
+nixpkgs_local_repository(
+    name = "nixpkgs",
+    nix_file = "//:nixpkgs.nix",
+    nix_file_deps = ["//:flake.lock"],
+)
+
+nixpkgs_cc_configure(
+    name = "llvm_toolchain",
+    nix_file = "//:llvm_toolchain.nix",
+    repository = "@nixpkgs",
+)
+
+nixpkgs_package(
+    name = "elfutils_headers",
+    attribute_path = "elfutils.dev",
+    build_file_content = """
+filegroup(
+    name = "include",
+    srcs = glob(["include/**/*.h"]),
+    visibility = ["//visibility:public"],
+)
+""",
+    repository = "@nixpkgs",
+)
+
+nixpkgs_package(
+    name = "elfutils",
+    attribute_path = "elfutils.out",
+    build_file_content = """
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+cc_library(
+    name = "dw",
+    srcs = glob(["lib/**/*libdw*.so*"]),
+    hdrs = ["@elfutils_headers//:include"],
+    strip_include_prefix = "include",
+    visibility = ["//visibility:public"],
+)
+""",
+    repository = "@nixpkgs",
+)
+
+nixpkgs_package(
+    name = "lzma_headers",
+    attribute_path = "xz.dev",
+    build_file_content = """
+filegroup(
+    name = "include",
+    srcs = glob(["include/**/*.h"]),
+    visibility = ["//visibility:public"],
+)
+""",
+    repository = "@nixpkgs",
+)
+
+nixpkgs_package(
+    name = "lzma",
+    attribute_path = "xz.out",
+    build_file_content = """
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+cc_library(
+    name = "lzma",
+    srcs = glob(["lib/**/*liblzma*.so*"]),
+    hdrs = ["@lzma_headers//:include"],
+    strip_include_prefix = "include",
+    visibility = ["//visibility:public"],
+)
+""",
+    repository = "@nixpkgs",
+)
+
+nixpkgs_package(
+    name = "libunwind_headers",
+    attribute_path = "libunwind.dev",
+    build_file_content = """
+filegroup(
+    name = "include",
+    srcs = glob(["include/**/*.h"]),
+    visibility = ["//visibility:public"],
+)
+""",
+    repository = "@nixpkgs",
+)
+
+# TODO(nedwill): consider pkgsStatic versions of these once we have a way
+# to ensure symbols don't collide with the fuzz binary
+nixpkgs_package(
+    name = "libunwind",
+    attribute_path = "libunwind",
+    build_file_content = """
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+filegroup(
+    name = "lib",
+    srcs = glob(["lib/**/*libunwind*.so*"]),
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "libunwind",
+    srcs = [":lib"],
+    hdrs = ["@libunwind_headers//:include"],
+    deps = ["@lzma//:lzma"],
+    strip_include_prefix = "include",
+    visibility = ["//visibility:public"],
+)
+""",
+    repository = "@nixpkgs",
+)
+
+nixpkgs_package(
+    name = "compiler_rt_dev",
+    attribute_path = "llvmPackages_18.compiler-rt.dev",
+    build_file_content = """
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+filegroup(
+    name = "include",
+    srcs = glob(["include/**/*.h"]),
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "compiler-rt-headers",
+    hdrs = [":include"],
+    strip_include_prefix = "include",
+    visibility = ["//visibility:public"],
+)
+""",
+    repository = "@nixpkgs",
+)
+
+# .dev has headers, .lib has libraries
+
+nixpkgs_package(
+    name = "llvm_headers",
+    attribute_path = "llvmPackages_18.llvm.dev",
+    build_file_content = """
+filegroup(
+    name = "include",
+    srcs = glob(["include/**/*.h"]),
+    visibility = ["//visibility:public"],
+)
+""",
+    repository = "@nixpkgs",
+)
+
+nixpkgs_package(
+    name = "llvm",
+    attribute_path = "llvmPackages_18.llvm.lib",
+    build_file_content = """
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+cc_library(
+    name = "libllvm",
+    srcs = glob(["lib/lib*.so*"]),
+    hdrs = ["@llvm_headers//:include"],
+    strip_include_prefix = "include",
+    visibility = ["//visibility:public"],
+)
+""",
+    repository = "@nixpkgs",
+)
+
+nixpkgs_package(
+    name = "clang_headers",
+    attribute_path = "llvmPackages_18.clang-unwrapped.dev",
+    build_file_content = """
+filegroup(
+    name = "include",
+    srcs = glob(["include/**/*.h", "include/**/*.def"]),
+    visibility = ["//visibility:public"],
+)
+""",
+    repository = "@nixpkgs",
+)
+
+# Clang libraries
+nixpkgs_package(
+    name = "clang",
+    attribute_path = "llvmPackages_18.clang-unwrapped.lib",
+    build_file_content = """
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+cc_library(
+    name = "libclang",
+    srcs = glob(["lib/lib*.so*"]),
+    hdrs = ["@clang_headers//:include"],
+    deps = ["@llvm//:libllvm"],
+    strip_include_prefix = "include",
+    visibility = ["//visibility:public"],
+)
+""",
+    repository = "@nixpkgs",
+)
+
+nixpkgs_package(
+    name = "openssl_headers",
+    attribute_path = "openssl.dev",
+    build_file_content = """
+filegroup(
+    name = "include",
+    srcs = glob(["include/**/*.h"]),
+    visibility = ["//visibility:public"],
+)
+""",
+    repository = "@nixpkgs",
+)
+
+nixpkgs_package(
+    name = "openssl",
+    build_file_content = """
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+cc_library(
+    name = "crypto",
+    srcs = glob(["lib/**/*libcrypto*.a*"]),
+    hdrs = ["@openssl_headers//:include"],
+    strip_include_prefix = "include",
+    visibility = ["//visibility:public"],
+)
+""",
+    nix_file_content = """
+{ pkgs ? import <nixpkgs> {} }:
+
+let
+  openssl = pkgs.openssl.override { static = true; };
+  # Directly select the 'out' output path
+  opensslPath = openssl.out;
+in
+  pkgs.stdenv.mkDerivation rec {
+    name = "openssl";
+    src = opensslPath;
+
+    installPhase = ''
+      mkdir -p $out/lib
+      cp -r $src/lib/* $out/lib/
+    '';
+  }
+""",
+    repository = "@nixpkgs",
+)
+
+http_archive(
+    name = "rules_python",
+    sha256 = "778aaeab3e6cfd56d681c89f5c10d7ad6bf8d2f1a72de9de55b23081b2d31618",
+    strip_prefix = "rules_python-0.34.0",
+    url = "https://github.com/bazelbuild/rules_python/releases/download/0.34.0/rules_python-0.34.0.tar.gz",
+)
+
+load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
+
+py_repositories()
+
+python_register_toolchains(
+    name = "python_3_10",
+    python_version = "3.10",
+)
+
+load("@python_3_10//:defs.bzl", "interpreter")
+load("@rules_python//python:pip.bzl", "pip_parse")
+
+pip_parse(
+    name = "tools_deps",
+    python_interpreter_target = interpreter,
+    requirements_lock = "//:requirements-lock.txt",
+)
+
+local_repository(
+    name = "com_google_absl",
+    path = "third_party/abseil-cpp",
+)
+
+http_archive(
+    name = "com_google_riegeli",
+    sha256 = "f8386e44e16d044c1d7151c0b553bb7075d79583d4fa9e613a4be452599e0795",
+    strip_prefix = "riegeli-411cda7f6aa81f8b8591b04cf141b1decdcc928c",
+    url = "https://github.com/google/riegeli/archive/411cda7f6aa81f8b8591b04cf141b1decdcc928c.tar.gz",
+)
+
+http_archive(
+    name = "highwayhash",
+    build_file = "@com_google_riegeli//third_party:highwayhash.BUILD",
+    sha256 = "cf891e024699c82aabce528a024adbe16e529f2b4e57f954455e0bf53efae585",
+    strip_prefix = "highwayhash-276dd7b4b6d330e4734b756e97ccfb1b69cc2e12",
+    urls = ["https://github.com/google/highwayhash/archive/276dd7b4b6d330e4734b756e97ccfb1b69cc2e12.zip"],  # 2019-02-22
+)
+
+http_archive(
+    name = "org_brotli",
+    sha256 = "84a9a68ada813a59db94d83ea10c54155f1d34399baf377842ff3ab9b3b3256e",
+    strip_prefix = "brotli-3914999fcc1fda92e750ef9190aa6db9bf7bdb07",
+    urls = ["https://github.com/google/brotli/archive/3914999fcc1fda92e750ef9190aa6db9bf7bdb07.zip"],  # 2022-11-17
+)
+
+http_archive(
+    name = "net_zstd",
+    build_file = "@com_google_riegeli//third_party:net_zstd.BUILD",
+    sha256 = "b6c537b53356a3af3ca3e621457751fa9a6ba96daf3aebb3526ae0f610863532",
+    strip_prefix = "zstd-1.4.5/lib",
+    urls = ["https://github.com/facebook/zstd/archive/v1.4.5.zip"],  # 2020-05-22
+)
+
+http_archive(
+    name = "snappy",
+    build_file = "@com_google_riegeli//third_party:snappy.BUILD",
+    sha256 = "38b4aabf88eb480131ed45bfb89c19ca3e2a62daeb081bdf001cfb17ec4cd303",
+    strip_prefix = "snappy-1.1.8",
+    urls = ["https://github.com/google/snappy/archive/1.1.8.zip"],  # 2020-01-14
+)
+
+http_archive(
+    name = "rules_pkg",
+    sha256 = "8a298e832762eda1830597d64fe7db58178aa84cd5926d76d5b744d6558941c2",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.7.0/rules_pkg-0.7.0.tar.gz",
+        "https://github.com/bazelbuild/rules_pkg/releases/download/0.7.0/rules_pkg-0.7.0.tar.gz",
+    ],
+)
+
+load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
+
+rules_pkg_dependencies()
+
+http_archive(
+    name = "com_google_protobuf",
+    sha256 = "b07772d38ab07e55eca4d50f4b53da2d998bb221575c60a4f81100242d4b4889",
+    strip_prefix = "protobuf-3.20.0",
+    urls = [
+        "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.20.0.tar.gz",
+    ],
+)
+
+http_archive(
+    name = "rules_m4",
+    sha256 = "b0309baacfd1b736ed82dc2bb27b0ec38455a31a3d5d20f8d05e831ebeef1a8e",
+    urls = ["https://github.com/jmillikin/rules_m4/releases/download/v0.2.2/rules_m4-v0.2.2.tar.xz"],
+)
+
+load("@rules_m4//m4:m4.bzl", "m4_register_toolchains")
+
+m4_register_toolchains()
+
+http_archive(
+    name = "rules_bison",
+    sha256 = "9577455967bfcf52f9167274063ebb74696cb0fd576e4226e14ed23c5d67a693",
+    urls = ["https://github.com/jmillikin/rules_bison/releases/download/v0.2.1/rules_bison-v0.2.1.tar.xz"],
+)
+
+load("@rules_bison//bison:bison.bzl", "bison_register_toolchains")
+
+bison_register_toolchains()
+
+http_archive(
+    name = "rules_flex",
+    sha256 = "2b11316dfae3292999c6acc99c0bdfdc6bdc25bb32b1e07c0840529e255e5e0f",
+    strip_prefix = "rules_flex-c40bf6a62dfcd4e849eef9bf1489f75ee987944e",
+    urls = ["https://github.com/jmillikin/rules_flex/archive/c40bf6a62dfcd4e849eef9bf1489f75ee987944e.zip"],
+)
+
+load("@rules_flex//flex:flex.bzl", "flex_register_toolchains")
+
+flex_register_toolchains()
+
+http_archive(
+    name = "com_googlesource_code_re2",
+    sha256 = "906d0df8ff48f8d3a00a808827f009a840190f404559f649cb8e4d7143255ef9",
+    strip_prefix = "re2-a276a8c738735a0fe45a6ee590fe2df69bcf4502",
+    urls = ["https://github.com/google/re2/archive/a276a8c738735a0fe45a6ee590fe2df69bcf4502.zip"],  # 2022-04-08
+)
+
+http_archive(
+    name = "com_google_googletest",
+    sha256 = "7ee83802222f9392452c57b4757185697a51639b69b64590f2c2188f58618581",
+    strip_prefix = "googletest-8d51dc50eb7e7698427fed81b85edad0e032112e",
+    urls = ["https://github.com/google/googletest/archive/8d51dc50eb7e7698427fed81b85edad0e032112e.zip"],
+)
+
+http_archive(
+    name = "rules_proto",
+    sha256 = "dc3fb206a2cb3441b485eb1e423165b231235a1ea9b031b4433cf7bc1fa460dd",
+    strip_prefix = "rules_proto-5.3.0-21.7",
+    urls = [
+        "https://github.com/bazelbuild/rules_proto/archive/refs/tags/5.3.0-21.7.tar.gz",
+    ],
+)
+
+load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
+
+rules_proto_dependencies()
+
+rules_proto_toolchains()
+
+http_archive(
+    name = "ios_sdk",
+    build_file = "//:bazel/BUILD.sdk",
+    sha256 = "35d6cc8d694d42db639c32c451ef5fcfb4679daf2c3c5bb295cc7391e317128e",
+    strip_prefix = "15.4",
+    url = "https://github.com/filsv/iPhoneOSDeviceSupport/raw/master/15.4.zip",
+)
+
+# Hedron's Compile Commands Extractor for Bazel
+# https://github.com/hedronvision/bazel-compile-commands-extractor
+http_archive(
+    name = "hedron_compile_commands",
+    sha256 = "044b148b111e17cee61d8c3aaeed42069f7325460382340afca4919f8265094c",
+    strip_prefix = "bazel-compile-commands-extractor-1e08f8e0507b6b6b1f4416a9a22cf5c28beaba93",
+    url = "https://github.com/hedronvision/bazel-compile-commands-extractor/archive/1e08f8e0507b6b6b1f4416a9a22cf5c28beaba93.tar.gz",
+)
+
+load("@hedron_compile_commands//:workspace_setup.bzl", "hedron_compile_commands_setup")
+
+hedron_compile_commands_setup()
+
+http_archive(
+    name = "rules_proto_grpc",
+    sha256 = "507e38c8d95c7efa4f3b1c0595a8e8f139c885cb41a76cab7e20e4e67ae87731",
+    strip_prefix = "rules_proto_grpc-4.1.1",
+    urls = ["https://github.com/rules-proto-grpc/rules_proto_grpc/archive/4.1.1.tar.gz"],
+)
+
+load("@rules_proto_grpc//:repositories.bzl", "rules_proto_grpc_toolchains")
+
+rules_proto_grpc_toolchains()
+
+load("@rules_proto_grpc//python:repositories.bzl", rules_proto_grpc_python_repos = "python_repos")
+
+rules_proto_grpc_python_repos()
+
+# Import "install_deps" as "install_tools_deps" to avoid name collision with
+# the "install_deps" function in the "rules_python" repository.
+load("@tools_deps//:requirements.bzl", install_tools_deps = "install_deps")
+
+install_tools_deps()
+
+local_repository(
+    name = "com_google_fuzztest",
+    path = "third_party/fuzztest",
+)
+
+http_archive(
+    name = "aspect_rules_js",
+    sha256 = "08061ba5e5e7f4b1074538323576dac819f9337a0c7d75aee43afc8ae7cb6e18",
+    strip_prefix = "rules_js-1.26.1",
+    url = "https://github.com/aspect-build/rules_js/releases/download/v1.26.1/rules_js-v1.26.1.tar.gz",
+)
+
+http_archive(
+    name = "aspect_rules_jest",
+    sha256 = "d3bb833f74b8ad054e6bff5e41606ff10a62880cc99e4d480f4bdfa70add1ba7",
+    strip_prefix = "rules_jest-0.18.4",
+    url = "https://github.com/aspect-build/rules_jest/releases/download/v0.18.4/rules_jest-v0.18.4.tar.gz",
+)
+
+load("@aspect_rules_jest//jest:dependencies.bzl", "rules_jest_dependencies")
+
+rules_jest_dependencies()
+
+http_archive(
+    name = "aspect_rules_ts",
+    sha256 = "ace5b609603d9b5b875d56c9c07182357c4ee495030f40dcefb10d443ba8c208",
+    strip_prefix = "rules_ts-1.4.0",
+    url = "https://github.com/aspect-build/rules_ts/releases/download/v1.4.0/rules_ts-v1.4.0.tar.gz",
+)
+
+load("@aspect_rules_ts//ts:repositories.bzl", "rules_ts_dependencies")
+
+rules_ts_dependencies(
+    ts_version_from = "//tools/group_crashes/frontend:package.json",
+)
+
+load("@aspect_rules_js//js:repositories.bzl", "rules_js_dependencies")
+
+rules_js_dependencies()
+
+load("@rules_nodejs//nodejs:repositories.bzl", "DEFAULT_NODE_VERSION", "nodejs_register_toolchains")
+
+nodejs_register_toolchains(
+    name = "nodejs",
+    node_version = DEFAULT_NODE_VERSION,
+)
+
+load("@aspect_rules_js//npm:repositories.bzl", "npm_translate_lock")
+
+npm_translate_lock(
+    name = "npm_sockfuzzer",
+    bins = {
+        # derived from "bin" attribute in node_modules/react-scripts/package.json
+        "react-scripts": {
+            "react-scripts": "./bin/react-scripts.js",
+        },
+    },
+    pnpm_lock = "//tools/group_crashes/frontend:pnpm-lock.yaml",
+    public_hoist_packages = {
+        "eslint-config-react-app": [""],
+        "eslint": [""],
+    },
+    verify_node_modules_ignored = "//:.bazelignore",
+)
+
+load("@npm_sockfuzzer//:repositories.bzl", "npm_repositories")
+
+npm_repositories()
+
+http_archive(
+    name = "io_bazel_rules_docker",
+    sha256 = "c27b53d53a5704fb676078843f1a674ff196ab4fb9d7f6b74cf7748b47c9374f",
+    strip_prefix = "rules_docker-8e70c6bcb584a15a8fd061ea489b933c0ff344ca",
+    url = "https://github.com/bazelbuild/rules_docker/archive/8e70c6bcb584a15a8fd061ea489b933c0ff344ca.tar.gz",
+)
+
+load(
+    "@io_bazel_rules_docker//repositories:repositories.bzl",
+    container_repositories = "repositories",
+)
+
+container_repositories()
+
+load("@io_bazel_rules_docker//repositories:deps.bzl", container_deps = "deps")
+
+container_deps(go_repository_default_config = "@//:WORKSPACE.bazel")
+
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_load",
+)
+
+load("@io_bazel_rules_docker//repositories:py_repositories.bzl", "py_deps")
+
+py_deps()
+
+load(
+    "@io_bazel_rules_docker//python:image.bzl",
+    py_image_repos = "repositories",
+)
+
+py_image_repos()
+
+load(
+    "@io_bazel_rules_docker//python3:image.bzl",
+    py3_image_repos = "repositories",
+)
+
+py3_image_repos()
+
+nixpkgs_package(
+    name = "raw_sockfuzzer_base_image",
+    build_file_content = """
+package(default_visibility = [ "//visibility:public" ])
+exports_files(["image.tar"])
+    """,
+    nix_file = "//:sockfuzzer_base_image.nix",
+    repository = "@nixpkgs//:nixpkgs.nix",
+)
+
+container_load(
+    name = "sockfuzzer_base_image",
+    file = "@raw_sockfuzzer_base_image//:image.tar",
+)
+
+http_archive(
+    name = "cmocka",
+    build_file_content = """
+load("@rules_foreign_cc//foreign_cc:defs.bzl", "cmake")
+
+cmake(
+    name = "cmocka",
+    lib_source = ".",
+    working_directory = "cmocka",
+    generate_args = [
+        "-DCMAKE_BUILD_TYPE=Debug",
+        "-DBUILD_SHARED_LIBS=OFF",
+        "-DWITH_EXAMPLES=OFF",
+    ],
+    out_static_libs = ["libcmocka.a"],
+    visibility = ["//visibility:public"],
+)
+    """,
+    sha256 = "810570eb0b8d64804331f82b29ff47c790ce9cd6b163e98d47a4807047ecad82",
+    strip_prefix = "cmocka-1.1.7",
+    urls = ["https://cmocka.org/files/1.1/cmocka-1.1.7.tar.xz"],
+)

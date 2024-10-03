@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Google LLC
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ class MockScheduler : public Scheduler {
   MOCK_METHOD(void, MakeRunnable, (ThreadHandle id), (override));
   MOCK_METHOD(void, MakeNotRunnable, (ThreadHandle id), (override));
   MOCK_METHOD(void, MakeAllRunnable,
-              (const absl::flat_hash_set<ThreadHandle> &runnable), (override));
+              (const std::vector<ThreadHandle> &runnable), (override));
   MOCK_METHOD(bool, IsRunnable, (ThreadHandle handle), (override));
   MOCK_METHOD(void, CleanupDeadThreads, (), (override));
 

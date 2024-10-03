@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Google LLC
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,8 +23,7 @@
 #include <set>
 #include <unordered_set>
 
-#include "absl/container/flat_hash_set.h"
-#include "executor/executor.h"
+#include "third_party/concurrence/executor/executor.h"
 
 class Scheduler : public Executor::CallbackInterface {
  public:
@@ -49,7 +48,7 @@ class Scheduler : public Executor::CallbackInterface {
   virtual void MakeRunnable(ThreadHandle id) = 0;
   virtual void MakeNotRunnable(ThreadHandle id) = 0;
   virtual void MakeAllRunnable(
-      const absl::flat_hash_set<ThreadHandle> &runnable) = 0;
+      const std::vector<ThreadHandle> &runnable) = 0;
   virtual bool IsRunnable(ThreadHandle handle) = 0;
   virtual void CleanupDeadThreads() = 0;
 
@@ -61,7 +60,7 @@ class Scheduler : public Executor::CallbackInterface {
 
   // Util
   virtual void SetRandSeed(uint32_t rand_seed) = 0;
-  virtual void SetThreadChoices(FuzzedDataProvider *thread_choices) = 0;
+  virtual void SetThreadChoices(FuzzedDataProvider* thread_choices) = 0;
   virtual ThreadHandle GetMainThread() = 0;
   virtual ThreadHandle GetCurrentThreadHandle() = 0;
   virtual const std::set<ThreadHandle> &GetLiveThreads() = 0;

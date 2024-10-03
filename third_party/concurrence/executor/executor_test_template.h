@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Google LLC
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "executor/executor.h"
+#include "third_party/concurrence/executor/executor.h"
 
 class EmptyExecutorCallbacks : public Executor::CallbackInterface {
   void ThreadDestroyed(ThreadHandle handle) override {}

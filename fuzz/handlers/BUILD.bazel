@@ -1,0 +1,124 @@
+cc_library(
+    name = "bsd",
+    srcs = [
+        "bsd.cc",
+        "necp.cc",
+    ],
+    hdrs = [
+        "bsd_types.h",
+    ],
+    visibility = [
+        "//tools/generate_syscall:__pkg__",
+    ],
+    deps = [
+        "//fuzz/host:headers",
+        "//fuzz/proto:bsd_cc_proto",
+        "//fuzz/proto:bsd_syscalls_cc_proto",
+        "//fuzz/xnu/bsd:headers",
+        "@com_google_absl//absl/strings:str_format",
+    ],
+)
+
+cc_library(
+    name = "mach_message",
+    srcs = [
+        "mach_message.cc",
+    ],
+    hdrs = [
+        "mach_message.h",
+    ],
+    # TODO(nedwill): host_test violates the XNU > Host > Target dependency rule
+    # We should fix the host tests to not depend on handlers.
+    visibility = [
+        "//fuzz/host:__pkg__",
+    ],
+    deps = [
+        "//fuzz/host",
+        "//fuzz/proto:mach_message_cc_proto",
+        "//fuzz/proto:mig_generated_cc_proto",
+        "//fuzz/xnu/osfmk:api_headers",
+        "//third_party/bootstrap_cmds:mig_headers",
+    ],
+)
+
+cc_library(
+    name = "mig_types",
+    srcs = [
+        "mig_types.cc",
+        "//third_party/bootstrap_cmds:mig_generated.cc",
+    ],
+    hdrs = [
+        "mig_generated.h",
+        "mig_types.h",
+    ],
+    visibility = [
+    ],
+    deps = [
+        ":mach_message",
+        "//fuzz/proto:mig_generated_cc_proto",
+        "//fuzz/proto:mig_types_cc_proto",
+        "//fuzz/xnu/osfmk:api_headers",
+        "//third_party/bootstrap_cmds:mig_headers",
+    ],
+)
+
+cc_library(
+    name = "command",
+    srcs = [
+        "command.cc",
+    ],
+    hdrs = [
+        "command.h",
+    ],
+    deps = [
+        ":bsd",
+        ":mach_message",
+        ":mig_types",
+        "//fuzz/common:utility",
+        "//fuzz/proto:mach_traps_cc_proto",
+        "//fuzz/proto:session_cc_proto",
+        "//tools/generate_syscall:call_bsd_syscalls_generated",
+        "@com_google_absl//absl/strings:str_format",
+    ],
+)
+
+cc_test(
+    name = "command_test",
+    srcs = [
+        "command_test.cc",
+    ],
+    deps = [
+        ":command",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "command_thread",
+    srcs = [
+        "command_thread.cc",
+    ],
+    hdrs = [
+        "command_thread.h",
+    ],
+    deps = [
+        ":command",
+        "//fuzz/xnu/osfmk:api_headers",
+    ],
+)
+
+cc_library(
+    name = "session",
+    srcs = ["session.cc"],
+    hdrs = ["session.h"],
+    visibility = [
+        "//fuzz/target:__pkg__",
+    ],
+    deps = [
+        ":command_thread",
+        "//fuzz/proto:session_cc_proto",
+        "//fuzz/host",
+        # "//fuzz/host/hypercall",
+        # "//fuzz/xnu/osfmk:api_headers",
+    ],
+)

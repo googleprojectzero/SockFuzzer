@@ -1,0 +1,168 @@
+load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@rules_cc//cc:defs.bzl", "cc_proto_library")
+load("@rules_proto_grpc//python:defs.bzl", "python_proto_library")
+
+proto_library(
+    name = "bsd_enums_proto",
+    srcs = [
+        "bsd_enums.proto",
+    ],
+    visibility = [
+        "//fuzz/handlers:__pkg__",
+        "//tools/generate_syscall:__pkg__",
+    ],
+)
+
+proto_library(
+    name = "bsd_types_proto",
+    srcs = [
+        "bsd_types.proto",
+    ],
+    visibility = [
+        "//fuzz/handlers:__pkg__",
+        "//tools/generate_syscall:__pkg__",
+    ],
+    deps = [":bsd_enums_proto"],
+)
+
+proto_library(
+    name = "bsd_proto",
+    srcs = ["bsd.proto"],
+    visibility = [
+        "//fuzz/handlers:__pkg__",
+        "//tools/generate_syscall:__pkg__",
+    ],
+    deps = [
+        ":bsd_enums_proto",
+        ":bsd_types_proto",
+    ],
+)
+
+cc_proto_library(
+    name = "bsd_cc_proto",
+    visibility = ["//fuzz/handlers:__pkg__"],
+    deps = [":bsd_proto"],
+)
+
+cc_proto_library(
+    name = "bsd_syscalls_cc_proto",
+    visibility = ["//fuzz/handlers:__pkg__"],
+    deps = ["//tools/generate_syscall:bsd_syscalls_proto"],
+)
+
+proto_library(
+    name = "common_proto",
+    srcs = ["common.proto"],
+    visibility = ["//fuzz/handlers:__pkg__"],
+)
+
+proto_library(
+    name = "mach_message_proto",
+    srcs = ["mach_message.proto"],
+    visibility = [
+        "//fuzz/handlers:__pkg__",
+        "//third_party/bootstrap_cmds:__pkg__",
+    ],
+    deps = [":common_proto"],
+)
+
+cc_proto_library(
+    name = "mach_message_cc_proto",
+    visibility = ["//fuzz/handlers:__pkg__"],
+    deps = [":mach_message_proto"],
+)
+
+cc_proto_library(
+    name = "mig_generated_cc_proto",
+    visibility = ["//fuzz/handlers:__pkg__"],
+    deps = ["//third_party/bootstrap_cmds:mig_generated_proto"],
+)
+
+proto_library(
+    name = "mach_traps_proto",
+    srcs = ["mach_traps.proto"],
+    visibility = ["//fuzz/handlers:__pkg__"],
+    deps = [
+        ":mach_message_proto",
+        "//third_party/bootstrap_cmds:mig_generated_proto",
+    ],
+)
+
+cc_proto_library(
+    name = "mach_traps_cc_proto",
+    visibility = ["//fuzz/handlers:__pkg__"],
+    deps = [":mach_traps_proto"],
+)
+
+proto_library(
+    name = "mig_types_proto",
+    srcs = ["mig_types.proto"],
+    visibility = [
+        "//fuzz/handlers:__pkg__",
+        "//third_party/bootstrap_cmds:__pkg__",
+    ],
+    deps = [":common_proto"],
+)
+
+cc_proto_library(
+    name = "mig_types_cc_proto",
+    visibility = ["//fuzz/handlers:__pkg__"],
+    deps = [":mig_types_proto"],
+)
+
+proto_library(
+    name = "schedule_proto",
+    srcs = ["schedule.proto"],
+    visibility = ["//fuzz/handlers:__pkg__"],
+)
+
+cc_proto_library(
+    name = "schedule_cc_proto",
+    visibility = ["//fuzz/handlers:__pkg__"],
+    deps = [":schedule_proto"],
+)
+
+proto_library(
+    name = "session_proto",
+    srcs = [
+        "session.proto",
+    ],
+    deps = [
+        "//fuzz/proto:bsd_proto",
+        "//fuzz/proto:common_proto",
+        "//fuzz/proto:mach_message_proto",
+        "//fuzz/proto:mach_traps_proto",
+        "//fuzz/proto:schedule_proto",
+        "//tools/generate_syscall:bsd_syscalls_proto",
+    ],
+)
+
+# Annoyingly, py_proto_library is not provided by bazel officially so we need
+# to use the gRPC rule which requires duplicating the proto_libaries.
+python_proto_library(
+    name = "session_py_proto",
+    protos = [
+        ":session_proto",
+        "//fuzz/proto:bsd_enums_proto",
+        "//fuzz/proto:bsd_proto",
+        "//fuzz/proto:bsd_types_proto",
+        "//fuzz/proto:common_proto",
+        "//fuzz/proto:mach_message_proto",
+        "//fuzz/proto:mach_traps_proto",
+        "//fuzz/proto:mig_types_proto",
+        "//fuzz/proto:schedule_proto",
+        "//third_party/bootstrap_cmds:mig_generated_proto",
+        "//tools/generate_syscall:bsd_syscalls_proto",
+    ],
+    visibility = ["//tools/group_crashes/backend/model:__pkg__"],
+)
+
+cc_proto_library(
+    name = "session_cc_proto",
+    visibility = [
+        "//fuzz/handlers:__pkg__",
+    ],
+    deps = [
+        ":session_proto",
+    ],
+)

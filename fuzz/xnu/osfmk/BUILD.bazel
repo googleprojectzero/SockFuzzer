@@ -1,0 +1,120 @@
+load("//third_party/xnu:options.bzl", "OSFMK_DEFINES", "OSFMK_INCLUDES", "XNU_COMPILE_OPTIONS", "XNU_INCLUDES", "convert_includes_to_flags")
+
+cc_library(
+    name = "api_headers",
+    hdrs = [
+        "api/backend.h",
+        "api/scheduler_state.h",
+        "api/thread.h",
+        "api/types.h",
+    ],
+    visibility = [
+        "//:__pkg__",
+        "//fuzz:__subpackages__",
+    ],
+)
+
+cc_library(
+    name = "api",
+    srcs = [
+        "api/osfmk_backend.c",
+        "api/scheduler_state.c",
+        "api/thread.c",
+    ],
+    copts = OSFMK_DEFINES + convert_includes_to_flags(XNU_INCLUDES + OSFMK_INCLUDES) + XNU_COMPILE_OPTIONS + ["-Wno-nullability-completeness"],
+    visibility = ["//fuzz/xnu:__pkg__"],
+    deps = [
+        ":api_headers",
+        "//third_party/xnu:osfmk_internal_headers",
+    ],
+    alwayslink = 1,
+)
+
+# TODO(nedwill): this isn't osfmk specific, move to //fuzz/xnu/common
+cc_library(
+    name = "fake_headers",
+    hdrs = [
+        "fakes/atomic.h",
+    ],
+    visibility = [
+        "//fuzz/host/hypercall:__pkg__",
+        "//fuzz/xnu:__subpackages__",
+        "//third_party/xnu:__pkg__",
+    ],
+    # includes = ["fakes"],
+    # strip_include_prefix = "fakes",
+)
+
+cc_library(
+    name = "fakes",
+    srcs = [
+        "fakes/atomic.c",
+        "fakes/clock.c",
+        "fakes/continuation.c",
+        "fakes/copyio.c",
+        "fakes/cpu_data.c",
+        "fakes/locks.c",
+        "fakes/log.c",
+        "fakes/mach_notify.c",
+        "fakes/machine.c",
+        "fakes/osfmk_stubs.c",
+        "fakes/platform_expert.c",
+        "fakes/pmap.c",
+        "fakes/scheduler.c",
+        "fakes/thread.c",
+        "fakes/timer.c",
+        "fakes/zalloc.c",
+    ],
+    copts = OSFMK_DEFINES + convert_includes_to_flags(XNU_INCLUDES + OSFMK_INCLUDES) + XNU_COMPILE_OPTIONS,
+    linkstatic = 1,
+    visibility = ["//fuzz/xnu:__pkg__"],
+    deps = ["//third_party/xnu:osfmk_internal"],
+    alwayslink = 1,
+)
+
+# TODO(nedwill): consider moving this to //fuzz/common since it has no
+# dependency on XNU code.
+cc_library(
+    name = "sync_fakes",
+    srcs = [
+        "fakes/sync/attr.cc",
+        "fakes/sync/group.cc",
+        "fakes/sync/locks.cc",
+        "fakes/sync/mutex.cc",
+        "fakes/sync/rw_lock.cc",
+        "fakes/sync/spin.cc",
+        "fakes/sync/tlock.cc",
+    ],
+    linkstatic = 1,
+    visibility = [
+        "//:__pkg__",
+        "//fuzz:__subpackages__",
+    ],
+    deps = [
+        "//fuzz/host/hypercall:headers",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "test_impl_header",
+    hdrs = ["test/osfmk_test_impl.h"],
+    includes = ["test"],
+    deps = ["//fuzz/xnu/common:test_utils"],
+    visibility = ["//fuzz/host:__pkg__"],
+)
+
+cc_library(
+    name = "test_impl",
+    srcs = ["test/osfmk_test_impl.c"],
+    deps = [
+        ":test_impl_header",
+        "//fuzz/xnu/common:test_utils",
+        "//third_party/xnu:osfmk_internal_headers",
+    ],
+    # The following copts and deps are necessary to compile the test implementation
+    # with the same flags and dependencies as the actual XNU OSFMK code. This ensures
+    # that the test environment closely matches the real XNU environment.
+    copts = OSFMK_DEFINES + convert_includes_to_flags(XNU_INCLUDES + OSFMK_INCLUDES) + XNU_COMPILE_OPTIONS,
+    visibility = ["//fuzz/host:__pkg__"],
+)

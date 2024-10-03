@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Google LLC
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,20 @@
 #ifndef CONCURRENCE_BACKTRACE_H_
 #define CONCURRENCE_BACKTRACE_H_
 
-#include <vector>
+#include <memory>
 
-void GetBacktrace(std::vector<void *> &stack);
-void PrintBacktraceFromStack(const std::vector<void *> &stack);
+class StackTraceImpl;  // Forward declare the implementation class
 
-#endif
+class StackTrace {
+public:
+    StackTrace();
+    ~StackTrace();
+
+    void Print() const;
+    bool Empty() const;
+
+private:
+    std::unique_ptr<StackTraceImpl> impl_;
+};
+
+#endif  // CONCURRENCE_BACKTRACE_H_

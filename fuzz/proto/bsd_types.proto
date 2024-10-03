@@ -1,0 +1,340 @@
+/*
+ * Copyright 2024 Google LLC
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ *
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ */
+
+syntax = "proto2";
+
+import "fuzz/proto/bsd_enums.proto";
+
+enum SaeAssocID {
+  ASSOCID_CASE_0 = 0;
+  ASSOCID_CASE_1 = 1;
+  ASSOCID_CASE_2 = 2;
+  ASSOCID_CASE_3 = 3;
+  // Note: negatives are inefficient in enum, perhaps we should
+  // just subtract 1 from the enum value as a hack.
+  ASSOCID_CASE_END = -1;
+}
+
+message IOV {
+  required bytes iov_data = 1;
+}
+
+message SockAddr {
+  oneof sockaddr {
+    SockAddrGeneric sockaddr_generic = 1;
+    // Legit IPv4 sockaddr
+    SockAddr4 sockaddr4 = 2;
+    // Legit IPv6 sockaddr
+    SockAddr6 sockaddr6 = 3;
+    // TODO(nedwill): Legit UNIX socket
+    // SockAddrUn sockaddrun = 3;
+
+    // TODO(nedwill): sockaddr_ctl, sockaddr_*
+
+    // Fuzz raw parsing of sockaddrs
+    // bytes raw_bytes = 1000;
+  }
+}
+
+message SockAddrGeneric {
+  required Domain sa_family = 1;
+  required bytes sa_data = 2;
+}
+
+message SockAddr4 {
+  required Domain sin_family = 1;
+  required PortNet sin_port = 2;
+  required InAddr sin_addr = 3;
+}
+
+message SockAddr6 {
+  required Domain family = 1;
+  required PortNet port = 2;
+  required FlowInfo flow_info = 3;
+  required In6Addr sin6_addr = 4;
+  required ScopeId sin6_scope_id = 5;
+}
+
+enum In6Addr {
+  IN6_ADDR_ANY = 0;
+  IN6_ADDR_LOOPBACK = 1;
+  IN6_ADDR_REAL = 2;
+  IN6_ADDR_SELF = 3;
+  IN6_ADDR_LINK_LOCAL = 4;
+  IN6_ADDR_UNSPECIFIED = 5;
+  IN6_ADDR_V4COMPAT = 7;
+  IN6_ADDR_V4MAPPED = 8;
+  IN6_ADDR_6TO4 = 9;
+  IN6_ADDR_LINKLOCAL = 10;
+  IN6_ADDR_SITELOCAL = 11;
+  IN6_ADDR_MULTICAST = 12;
+  IN6_ADDR_UNIQUE_LOCAL = 13;
+  IN6_ADDR_MC_NODELOCAL = 14;
+  IN6_ADDR_MC_INTFACELOCAL = 15;
+  IN6_ADDR_MC_LINKLOCAL = 16;
+  IN6_ADDR_MC_SITELOCAL = 17;
+  IN6_ADDR_MC_ORGLOCAL = 18;
+  IN6_ADDR_MC_GLOBAL = 19;
+  IN6_ADDR_LOCAL_ADDRESS = 20;
+  MAYBE_LOCALHOST = 16777216;
+}
+
+// These can be used as-is for 32-bit ints.
+enum InAddr {
+  IN4_ADDR_0 = 0;
+  IN4_ADDR_1 = 1;
+  IN4_ADDR_2 = 2;
+  // 24.130.58.208
+  IN4_ADDR_4 = 411187920;
+  // 127.0.0.1
+  IN4_ADDR_5 = 2130706433;
+  // 192.168.86.88
+  IN4_ADDR_6 = -1062709672;
+  IN4_ADDR_BROADCAST = -1;
+}
+
+enum FlowInfo {
+  FLOW_INFO_0 = 0;
+  FLOW_INFO_1 = 1;
+  FLOW_INFO_2 = 2;
+  FLOW_INFO_3 = 3;
+}
+
+enum ScopeId {
+  SCOPE_ID_0 = 0;
+  SCOPE_ID_1 = 1;
+  SCOPE_ID_2 = 2;
+  SCOPE_ID_3 = 3;
+  SCOPE_ID_50 = 50;
+}
+
+enum PortNet {
+  PORT_0 = 0;
+  PORT_1 = 1;
+  PORT_2 = 2;
+  PORT_5555 = 5555;
+  PORT_65000 = 65000;
+}
+
+// Interface index obtained from if_nametoindex
+// TODO(nedwill): do something more legit here
+enum IfIdx {
+  IFIDX_CASE_0 = 0;
+  IFIDX_CASE_1 = 1;
+  IFIDX_CASE_2 = 2;
+  IFIDX_CASE_3 = 3;
+}
+
+message NecpClientActionAgent {
+  repeated NecpTlv necp_tlv = 1;
+}
+
+message NecpTlv {
+  // TODO(nedwill): make this an enum
+  optional uint32 necp_type = 1;
+  optional bytes data = 2;
+}
+
+enum IfrName {
+  LO0 = 0;
+  STF0 = 1;
+  IPSEC0 = 2;
+  UTUN0 = 3;
+}
+
+// ifreq.ifr_flags
+message IfReqFlags {
+  required IfrName ifr_name = 1;
+  // #define	ifr_flags	ifr_ifru.ifru_flags	/* flags */
+  repeated IfruFlag flags = 2;
+}
+
+message In6_AliasReq_64 {
+  required bytes ifra_name = 1;
+  required SockAddr6 ifra_addr = 2;
+  required SockAddr6 ifra_dstaddr = 3;
+  required SockAddr6 ifra_prefixmask = 4;
+  repeated IfraFlag ifra_flags = 5;
+  required In6AddrLifetime_64 ifra_lifetime = 6;
+}
+
+message In6AddrLifetime_64 {
+  required uint64 ia6t_expire = 1;
+  required uint64 ia6t_preferred = 2;
+  required uint32 ia6t_vltime = 3;
+  required uint32 ia6t_pltime = 4;
+}
+
+message TcpPacket {
+  required IpHdr ip_hdr = 1;
+  required TcpHdr tcp_hdr = 2;
+  optional bytes data = 3;
+}
+
+message Tcp6Packet {
+  required Ip6Hdr ip6_hdr = 1;
+  required TcpHdr tcp_hdr = 2;
+  optional bytes data = 3;
+}
+
+message Ip4Packet {
+  optional IpHdr ip_hdr = 1;
+  optional bytes data = 2;
+}
+
+message Ip6Packet {
+  optional Ip6Hdr ip6_hdr = 1;
+  optional bytes data = 2;
+}
+
+message Ip6Ext {
+  required Protocol ip6e_nxt = 1;
+  required uint32 ip6e_len = 2;
+}
+
+message Ip6RtHdr {
+  required Protocol ip6r_nxt = 1;
+  required uint32 ip6r_len = 2;
+  required Ip6RtType ip6r_type = 3;
+  required uint32 ip6r_segleft = 4;
+}
+
+message Ip6Rt0Hdr {
+  required Protocol ip6r0_nxt = 1;
+  required uint32 ip6r0_len = 2;
+  required uint32 ip6r0_type = 3;
+  required uint32 ip6r0_segleft = 4;
+  required uint32 ip6r0_reserved = 5;
+  required uint32 ip6r0_slmap = 6;
+  repeated In6Addr ip6r0_addr = 7;
+}
+
+message Ip6FragHdr {
+  required Protocol ip6f_nxt = 1;
+  required uint32 ip6f_reserved = 2;
+  required uint32 ip6f_offlg = 3;
+  required uint32 ip6f_ident = 4;
+}
+
+message Icmp6Hdr {
+  optional Icmp6Type icmp6_type = 1;
+  optional Icmp6Code icmp6_code = 2;
+  // optional uint32 icmp6_cksum = 3;
+  optional uint32 icmp6_dataun = 4;
+}
+
+enum TcpSeq {
+  SEQ_1 = 1;
+  SEQ_2 = 2;
+  SEQ_3 = 3;
+  SEQ_4 = 4;
+  SEQ_5 = 5;
+  SEQ_6 = 6;
+  SEQ_7 = 7;
+  SEQ_8 = 8;
+}
+
+message TcpHdr {
+  required PortNet th_sport = 1;
+  required PortNet th_dport = 2;
+  required TcpSeq th_seq = 3;
+  required TcpSeq th_ack = 4;
+  required uint32 th_off = 5;
+  repeated TcpFlag th_flags = 6;
+  required uint32 th_win = 7;
+  required uint32 th_sum = 8;
+  required uint32 th_urp = 9;
+  // Ned's extensions
+  required bool is_pure_syn = 10;
+  required bool is_pure_ack = 11;
+}
+
+enum IpVersion {
+  IPV4 = 4;
+  IPV6 = 6;
+}
+
+// TODO(nedwill): ip options
+message IpHdr {
+  required uint32 ip_hl = 1;
+  required IpVersion ip_v = 2;
+  required uint32 ip_tos = 3;
+  required uint32 ip_len = 4;
+  required uint32 ip_id = 5;
+  required uint32 ip_off = 6;
+  required uint32 ip_ttl = 7;
+  required Protocol ip_p = 8;
+  required InAddr ip_src = 9;
+  required InAddr ip_dst = 10;
+}
+
+message Ip6Hdr {
+  required Ip6Hdrctl ip6_hdrctl = 1;
+  required In6Addr ip6_src = 2;
+  required In6Addr ip6_dst = 3;
+}
+
+message Ip6Hdrctl {
+  required uint32 ip6_un1_flow = 1;
+  required uint32 ip6_un1_plen = 2;
+  required Protocol ip6_un1_nxt = 3;
+  required uint32 ip6_un1_hlim = 4;
+}
+
+// Some pre-allocated file descriptors to make guessing
+// a real file descriptor more likely.
+// TODO(nedwill): do experiments to determine how many of
+// these to use.
+enum FileDescriptor {
+  FD_0 = 0;
+  FD_1 = 1;
+  FD_2 = 2;
+  FD_3 = 3;
+  FD_4 = 4;
+  FD_5 = 5;
+  FD_6 = 6;
+  FD_7 = 7;
+  FD_8 = 8;
+  FD_9 = 9;
+}
+
+message KEventStruct {
+  // TODO: ident is usually a file descriptor, but could be anything...
+  required FileDescriptor ident = 1;
+  required KEventFilter filter = 2;
+  repeated KEventFlag flags = 3;
+  // TODO: filter flags
+  required int64 fflags = 4;
+  required int64 data = 5;
+  required int64 udata = 6;
+}
+
+message RLimit {
+  optional uint64 current = 1;
+  optional uint64 max = 2;
+}

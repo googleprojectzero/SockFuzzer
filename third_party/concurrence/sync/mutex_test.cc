@@ -1,4 +1,4 @@
-// Copyright 2022 Google LLC
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,15 +14,18 @@
 
 #include "mutex.h"
 
+#include <gtest/gtest.h>
 #include <set>
 
-#include "scheduler/mock_scheduler.h"
-#include "sync/tracker.h"
+#include "third_party/concurrence/scheduler/mock_scheduler.h"
+#include "third_party/concurrence/sync/tracker.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 using ::testing::ElementsAre;
 using ::testing::IsEmpty;
+
+bool is_verbose = false;
 
 TEST(MutexTest, LockUnlock) {
   MockScheduler mock_scheduler;

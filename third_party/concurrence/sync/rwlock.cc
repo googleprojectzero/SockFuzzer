@@ -1,4 +1,4 @@
-// Copyright 2022 Google LLC
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,16 +15,17 @@
 #include "rwlock.h"
 
 #include <stdlib.h>
+#include <iostream>
+#include <cstddef>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/hash/hash.h"
-#include "absl/log/log.h"
-
-#include "scheduler/scheduler.h"
+#include "third_party/concurrence/scheduler/scheduler.h"
 
 class SyncTracker;
 
+extern bool is_verbose;
 void GetBacktrace(std::vector<void *> &stack);
 
 VirtualRwLock::VirtualRwLock(SyncTracker *sync_tracker)
@@ -59,6 +60,7 @@ void VirtualRwLock::LockExclusive() {
       AddWaiter();
       scheduler()->Block();
     }
+    RemoveWaiter();
 
     // mutex_.Lock can block and we might lose the race after someone else
     // took it added a reader
@@ -68,9 +70,13 @@ void VirtualRwLock::LockExclusive() {
     }
     mutex_.Unlock();
   }
+  // printf("VirtualRwLock::LockExclusive: readers %zu held %d\n",
+  // owners().size(), mutex_.Held());
 }
 
 void VirtualRwLock::UnlockExclusive() {
+  // printf("VirtualRwLock::UnlockExclusive: readers %zu, held %d\n",
+  // owners().size(), mutex_.Held());
   if (!mutex_.Held()) {
     abort();
   }
@@ -83,16 +89,24 @@ void VirtualRwLock::UnlockExclusive() {
 void VirtualRwLock::LockShared() {
   mutex_.Lock();
   AddOwner();
+  // printf("VirtualRwLock::LockShared: readers incremented to %zu\n",
+  // owners().size());
   mutex_.Unlock();
 }
 
 void VirtualRwLock::UnlockShared() {
+  // printf("VirtualRwLock::UnlockShared: before lock readers %zu\n",
+  // owners().size());
   mutex_.Lock();
+  // printf("VirtualRwLock::UnlockShared: after lock readers %zu\n",
+  // owners().size());
   RemoveOwner();
   mutex_.Unlock();
 }
 
 void VirtualRwLock::ExclusiveToShared() {
+  // printf("VirtualRwLock::ExclusiveToShared(%p), readers %zu mutex held %d\n",
+  // this, owners().size(), mutex_.Held());
   mutex_.AssertHeld();
   if (!owners_.empty()) {
     abort();
@@ -100,9 +114,13 @@ void VirtualRwLock::ExclusiveToShared() {
 
   AddOwner();
   mutex_.Unlock();
+  // printf("VirtualRwLock::ExclusiveToShared(%p), readers %zu mutex held %d\n",
+  // this, owners().size(), mutex_.Held());
 }
 
 void VirtualRwLock::Unlock() {
+  // printf("VirtualRwLock::Unlock(%p), readers %zu mutex held %d\n", this,
+  // owners().size(), mutex_.Held());
   if (!IsShared()) {
     UnlockExclusive();
   } else {
@@ -122,12 +140,12 @@ bool VirtualRwLock::SharedToExclusive() {
 
 void VirtualRwLock::AddOwner() {
   if (IsOwnedBy(g_current_thread)) {
-    LOG(ERROR) << "VirtualRwLock is already owned by current thread!\n";
+    std::cout << "VirtualRwLock is already owned by current thread!\n";
     abort();
   }
   owners_.insert(g_current_thread);
-  if (enable_debug_checks_) {
-    GetBacktrace(owner_backtraces()[g_current_thread]);
+  if (is_verbose) {
+    owner_backtraces()[g_current_thread] = std::make_unique<StackTrace>();
   }
 }
 
@@ -136,11 +154,11 @@ void VirtualRwLock::RemoveOwner() {
   if (!erased) {
     abort();
   }
-  if (enable_debug_checks_) {
+  if (is_verbose) {
     owner_backtraces().erase(g_current_thread);
   }
   if (owners_.empty()) {
-    ClearAndUnblockWaiters();
+    WakeupWaiters();
   }
 }
 

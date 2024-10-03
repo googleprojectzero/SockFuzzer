@@ -1,4 +1,4 @@
-// Copyright 2022 Google LLC
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,15 +20,13 @@
 #include <algorithm>
 #include <cstdlib>
 
-#include "absl/log/log.h"
 #include "absl/strings/str_format.h"
-#include "executor/executor.h"
-#include "scheduler/scheduler.h"
+#include "third_party/concurrence/executor/executor.h"
+#include "third_party/concurrence/scheduler/scheduler.h"
 
 FuzzedScheduler::FuzzedScheduler(
     Executor *executor, Scheduler::CallbackInterface *callback_interface)
     : executor_(executor),
-      enable_debug_checks_(false),
       callbacks_(callback_interface),
       thread_choices_(nullptr),
       interrupts_enabled_(true),
@@ -87,14 +85,19 @@ void FuzzedScheduler::Yield() {
 
   // Yielding in main thread is a nop
   if (g_current_thread == executor_->GetMainThreadHandle()) {
+    // printf("FuzzedScheduler::Yield: in main thread\n");
     return;
   }
 
+  // don't yield if interrupts are enabled
   if (!interrupts_enabled_) {
+    // printf("FuzzedScheduler::Yield: interrupts disabled\n");
     return;
   }
 
+  // Don't yield if we will immediately schedule this thread again
   if (runnable_.empty()) {
+    // printf("FuzzedScheduler::Yield: nothing available to run\n");
     return;
   }
 
@@ -103,11 +106,14 @@ void FuzzedScheduler::Yield() {
 }
 
 void FuzzedScheduler::Block() {
+  // printf("FuzzedScheduler::Block: blocking in thread %p\n", (void*)handle);
   if (g_current_thread == executor_->GetMainThreadHandle()) {
     std::cout
         << "FuzzedScheduler::Block: blocking main thread is not allowed\n";
     abort();
   }
+  // printf("Block removing runnable 0x%lx\n", handle);
+  // runnable_set_.erase(handle);
   ThreadHandle main_handle = executor_->GetMainThreadHandle();
   callbacks_->ThreadWillBlock();
   SwitchTo(main_handle);
@@ -158,9 +164,6 @@ void FuzzedScheduler::SwitchTo(ThreadHandle handle) {
     return;
   }
 
-  if (enable_debug_checks_) {
-    executor_->SetBacktrace(g_current_thread);
-  }
   executor_->SwitchTo(handle);
   callbacks_->ThreadResumed();
 }
@@ -194,11 +197,13 @@ void FuzzedScheduler::MakeRunnable(ThreadHandle handle) {
 
 #ifndef NDEBUG
   if (!handle) {
-    LOG(FATAL) << "missing handle\n";
+    std::cout << "missing handle\n";
+    abort();
   }
 
   if (pending_deletion_.contains(handle)) {
-    LOG(FATAL) << "pending deletion\n";
+    std::cout << "pending deletion\n";
+    abort();
   }
 #endif
 
@@ -222,7 +227,7 @@ void FuzzedScheduler::MakeNotRunnable(ThreadHandle handle) {
 }
 
 void FuzzedScheduler::MakeAllRunnable(
-    const absl::flat_hash_set<ThreadHandle> &runnable) {
+    const std::vector<ThreadHandle> &runnable) {
   for (const ThreadHandle &handle : runnable) {
     MakeRunnable(handle);
   }
@@ -284,28 +289,28 @@ ThreadHandle FuzzedScheduler::ChooseThread(bool can_choose_existing) {
 }
 
 void FuzzedScheduler::PrintThreadState(ThreadHandle handle) {
-  LOG(INFO) << "; ";
+  std::cout << "; ";
   bool printed = false;
   if (IsRunnable(handle)) {
-    LOG(INFO) << "RUNNABLE";
+    std::cout << "RUNNABLE";
     printed = true;
   }
   if (live_set_.contains(handle)) {
     if (printed) {
-      LOG(INFO) << ", ";
+      std::cout << ", ";
     }
-    LOG(INFO) << "ALIVE";
+    std::cout << "ALIVE";
     printed = true;
   }
   if (pending_deletion_.contains(handle)) {
     if (printed) {
-      LOG(INFO) << ", ";
+      std::cout << ", ";
     }
-    LOG(INFO) << "PENDING DELETION";
+    std::cout << "PENDING DELETION";
     printed = true;
   }
   if (printed) {
-    LOG(INFO) << "\n";
+    std::cout << "\n";
   }
 }
 

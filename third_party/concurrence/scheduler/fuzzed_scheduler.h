@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Google LLC
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,19 +17,22 @@
 #ifndef SCHEDULER_IMPL_H_
 #define SCHEDULER_IMPL_H_
 
+#include <fuzzer/FuzzedDataProvider.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <deque>
-#include <functional>
+#include <list>
 #include <memory>
+#include <mutex>
 #include <set>
+#include <unordered_map>
+#include <functional>
 #include <string>
 #include <vector>
 
+#include "third_party/concurrence/executor/executor.h"
+#include "scheduler.h"
 #include "absl/container/flat_hash_set.h"
-
-#include "executor/executor.h"
-#include "scheduler/scheduler.h"
 
 class FuzzedDataProvider;
 
@@ -38,6 +41,10 @@ class FuzzedScheduler : public Scheduler {
   FuzzedScheduler(Executor *executor,
                   Scheduler::CallbackInterface *callback_interface);
   ~FuzzedScheduler() override = default;
+  FuzzedScheduler(const FuzzedScheduler &) = delete;
+  FuzzedScheduler &operator=(const FuzzedScheduler &) = delete;
+  FuzzedScheduler(const FuzzedScheduler &&) = delete;
+  FuzzedScheduler &operator=(FuzzedScheduler &&) = delete;
 
   // External scheduler support
   ThreadHandle CreateThread(std::function<void()> target,
@@ -58,7 +65,7 @@ class FuzzedScheduler : public Scheduler {
   void MakeRunnable(ThreadHandle handle) override;
   void MakeNotRunnable(ThreadHandle handle) override;
   void MakeAllRunnable(
-      const absl::flat_hash_set<ThreadHandle> &runnables) override;
+      const std::vector<ThreadHandle> &runnables) override;
   bool IsRunnable(ThreadHandle handle) override;
   void CleanupDeadThreads() override;
 
@@ -70,7 +77,7 @@ class FuzzedScheduler : public Scheduler {
 
   // Util
   void SetRandSeed(uint32_t rand_seed) override;
-  void SetThreadChoices(FuzzedDataProvider *thread_choices) override;
+  void SetThreadChoices(FuzzedDataProvider* thread_choices) override;
   ThreadHandle GetMainThread() override;
   ThreadHandle GetCurrentThreadHandle() override;
   const std::set<ThreadHandle> &GetLiveThreads() override { return live_set_; }
@@ -89,7 +96,6 @@ class FuzzedScheduler : public Scheduler {
 
  private:
   std::unique_ptr<Executor> executor_;
-  bool enable_debug_checks_;
 
   Scheduler::CallbackInterface *callbacks_;
 

@@ -1,4 +1,4 @@
-// Copyright 2022 Google LLC
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,14 +14,14 @@
 
 #include "thread.h"
 
-#include <unistd.h>
 #include <pthread.h>
+#include <unistd.h>
 #include <utility>
 
 #include "absl/log/check.h"
-#include "thread_executor.h"
 #include "absl/synchronization/mutex.h"
-#include "executor/executor.h"
+#include "third_party/concurrence/executor/executor.h"
+#include "thread_executor.h"
 
 void CooperativeThread::Start() {
   tid_ = gettid();

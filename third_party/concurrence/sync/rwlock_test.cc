@@ -1,4 +1,4 @@
-// Copyright 2022 Google LLC
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "sync/rwlock.h"
+#include "third_party/concurrence/sync/rwlock.h"
 
+#include <gtest/gtest.h>
 #include <deque>
 #include <set>
 
-#include "scheduler/mock_scheduler.h"
-#include "sync/tracker.h"
+#include "third_party/concurrence/scheduler/mock_scheduler.h"
+#include "third_party/concurrence/sync/tracker.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 

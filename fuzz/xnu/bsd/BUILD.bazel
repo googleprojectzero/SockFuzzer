@@ -1,0 +1,53 @@
+load("//third_party/xnu:options.bzl", "BSD_DEFINES", "BSD_INCLUDES", "XNU_COMPILE_OPTIONS", "XNU_INCLUDES", "convert_includes_to_flags")
+
+cc_library(
+    name = "headers",
+    hdrs = [
+        "api/backend.h",
+        "api/ioctl.h",
+        "//tools/generate_syscall:syscall_wrappers_generated.h",
+    ],
+    visibility = ["//fuzz:__subpackages__"],
+)
+
+cc_library(
+    name = "api",
+    srcs = [
+        "api/bsd_backend.c",
+        "api/ioctl.c",
+        "//tools/generate_syscall:syscall_wrappers_generated.c",
+    ],
+    # TODO(nedwill): use this when making header dependency change below
+    # copts = XNU_COMPILE_OPTIONS_NO_META,
+    copts = BSD_DEFINES + convert_includes_to_flags(BSD_INCLUDES + XNU_INCLUDES) + XNU_COMPILE_OPTIONS,
+    linkstatic = 1,
+    visibility = ["//fuzz/xnu:__pkg__"],
+    deps = [
+        ":headers",
+        "//fuzz/host/hypercall:headers",
+        "//fuzz/xnu/osfmk:fake_headers",
+        "//third_party/xnu:bsd_internal_headers",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "fakes",
+    srcs = [
+        "fakes/fake_impls.c",
+        "fakes/mbuf.c",
+        "fakes/mcache.c",
+        "fakes/platform_expert.c",
+        "fakes/root_device.c",
+        "fakes/stubs.c",
+        "fakes/vfs.c",
+    ],
+    copts = BSD_DEFINES + convert_includes_to_flags(BSD_INCLUDES + XNU_INCLUDES) + XNU_COMPILE_OPTIONS,
+    linkstatic = 1,
+    visibility = ["//fuzz/xnu:__pkg__"],
+    deps = [
+        ":headers",
+        "//third_party/xnu:bsd_internal",
+    ],
+    alwayslink = 1,
+)

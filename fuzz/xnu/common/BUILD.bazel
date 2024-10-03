@@ -1,0 +1,7 @@
+cc_library(
+    name = "test_utils",
+    srcs = ["test_utils.c"],
+    hdrs = ["test_utils.h"],
+    deps = ["//fuzz/host/hypercall:headers"],
+    visibility = ["//fuzz/xnu:__subpackages__"],
+)

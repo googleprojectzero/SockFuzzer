@@ -1,0 +1,175 @@
+load("//third_party/xnu:options.bzl", "LIBKERN_DEFINES")
+load("@rules_python//python:defs.bzl", "py_library", "py_binary", "py_test")
+
+py_library(
+    name = "upstream_syscall",
+    srcs = [
+        "upstream_syscall.py",
+    ],
+)
+
+py_binary(
+    name = "upstream_syscall_manager",
+    srcs = [
+        "upstream_syscall_manager.py",
+    ],
+    deps = [
+        ":upstream_syscall",
+    ],
+)
+
+py_test(
+    name = "upstream_syscall_manager_test",
+    size = "small",
+    srcs = [
+        "upstream_syscall_manager_test.py",
+    ],
+    deps = [
+        "upstream_syscall_manager",
+    ],
+)
+
+genrule(
+    name = "bsd_syscall_wrappers",
+    srcs = [
+        "//third_party/xnu:bsd/kern/syscalls.master",
+        "templates/wrappers_header_preamble.h",
+    ],
+    outs = [
+        "syscall_wrappers_generated.c",
+        "syscall_wrappers_generated.h",
+    ],
+    cmd = " ".join([
+        "$(location upstream_syscall_manager)",
+        "-i $(location //third_party/xnu:bsd/kern/syscalls.master)",
+        "--wrappers $(location syscall_wrappers_generated.c)",
+        "--wrappers_header $(location syscall_wrappers_generated.h)",
+        "--wrappers_header_preamble $(location templates/wrappers_header_preamble.h)",
+        "-x nosys",
+        "-x enosys",
+    ] + LIBKERN_DEFINES),
+    tools = [":upstream_syscall_manager"],
+    visibility = [
+        "//fuzz/target:__pkg__",
+        "//fuzz/xnu/bsd:__pkg__",
+    ],
+)
+
+py_library(
+    name = "downstream_field",
+    srcs = [
+        "downstream_field.py",
+    ],
+)
+
+py_library(
+    name = "downstream_syscall_parser",
+    srcs = [
+        "downstream_syscall_parser.py",
+    ],
+    deps = [
+        ":downstream_field",
+    ],
+)
+
+py_test(
+    name = "downstream_syscall_parser_test",
+    size = "small",
+    srcs = [
+        "downstream_syscall_parser_test.py",
+    ],
+    deps = [
+        ":downstream_syscall_parser",
+    ],
+)
+
+py_library(
+    name = "downstream_syscall",
+    srcs = [
+        "downstream_syscall.py",
+    ],
+    deps = [
+        ":downstream_field",
+        ":downstream_syscall_parser",
+    ],
+)
+
+py_test(
+    name = "downstream_syscall_test",
+    size = "small",
+    srcs = [
+        "downstream_syscall_test.py",
+    ],
+    deps = [
+        ":downstream_syscall",
+    ],
+)
+
+py_binary(
+    name = "downstream_syscall_manager",
+    srcs = [
+        "downstream_syscall_manager.py",
+    ],
+    deps = [
+        ":downstream_syscall",
+        ":upstream_syscall_manager",
+    ],
+)
+
+py_test(
+    name = "downstream_syscall_manager_test",
+    size = "small",
+    srcs = [
+        "downstream_syscall_manager_test.py",
+    ],
+    deps = [
+        ":downstream_syscall_manager",
+    ],
+)
+
+genrule(
+    name = "bsd_syscall_callers",
+    srcs = [
+        "//third_party/xnu:bsd/kern/syscalls.master",
+        "data/syscalls.defs",
+    ],
+    outs = [
+        "call_bsd_syscalls_generated.cc",
+        "bsd_syscalls_generated.proto",
+    ],
+    cmd = " ".join([
+        "$(location downstream_syscall_manager)",
+        "-i $(location data/syscalls.defs)",
+        "-u $(location //third_party/xnu:bsd/kern/syscalls.master)",
+        "--caller $(location call_bsd_syscalls_generated.cc)",
+        "--protos $(location bsd_syscalls_generated.proto)",
+    ] + LIBKERN_DEFINES),
+    tools = [":downstream_syscall_manager"],
+)
+
+cc_library(
+    name = "call_bsd_syscalls_generated",
+    srcs = [
+        ":call_bsd_syscalls_generated.cc",
+    ],
+    hdrs = [
+        "call_bsd_syscall.h",
+    ],
+    visibility = ["//fuzz/handlers:__pkg__"],
+    deps = [
+        "//fuzz/handlers:bsd",
+    ],
+)
+
+proto_library(
+    name = "bsd_syscalls_proto",
+    srcs = ["bsd_syscalls_generated.proto"],
+    visibility = [
+        "//fuzz/proto:__pkg__",
+        "//fuzz/target:__pkg__",
+    ],
+    deps = [
+        "//fuzz/proto:bsd_enums_proto",
+        "//fuzz/proto:bsd_types_proto",
+    ],
+)

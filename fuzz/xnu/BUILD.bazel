@@ -1,0 +1,48 @@
+load("//:bazel/cc_object.bzl", "cc_object")
+
+LIBXNU_DEPS = [
+    "//fuzz/xnu/bsd:api",
+    "//fuzz/xnu/bsd:fakes",
+    "//fuzz/xnu/osfmk:api",
+    "//fuzz/xnu/osfmk:fakes",
+    "//fuzz/xnu/osfmk:sync_fakes",
+    "//third_party/xnu:libkern_internal",
+    "//third_party/xnu:security_internal",
+    "//fuzz/host/hypercall:headers",
+    "@zlib//:zlib",
+    # "//fuzz/xnu/test:backend",
+] + select({
+    "//:asan_enabled": ["//fuzz/xnu/san:san"],
+    "//conditions:default": [],
+})
+
+cc_object(
+    name = "libxnu.o",
+    redefine_syms = "libxnu.redef",
+    visibility = [
+        "//fuzz/host:__pkg__",
+        "//fuzz/target:__pkg__",
+    ],
+    deps = LIBXNU_DEPS,
+)
+
+cc_binary(
+    name = "libxnu.so",
+    additional_linker_inputs = [":xnu_version_script"],
+    linkopts = [
+        "-Wl,--version-script=$(location :xnu_version_script)",
+        "-Wl,--no-gc-sections",
+    ],
+    linkshared = True,
+    visibility = [
+        "//fuzz/host:__pkg__",
+        "//fuzz/target:__pkg__",
+    ],
+    deps = LIBXNU_DEPS,
+)
+
+filegroup(
+    name = "xnu_version_script",
+    srcs = ["xnu_version_script.lds"],
+    visibility = ["//visibility:public"],
+)

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Google LLC
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,17 +17,26 @@
 #ifndef COROUTINE_EXECUTOR_H_
 #define COROUTINE_EXECUTOR_H_
 
+#include <ucontext.h>
+
 #include <functional>
+#include <memory>
+#include <set>
 #include <string>
+#include <vector>
 
 #include "absl/container/flat_hash_map.h"
-#include "executor/executor.h"
+#include "third_party/concurrence/executor/executor.h"
 #include "third_party/libco/libco.h"
 
 class CoroutineExecutor : public Executor {
  public:
   explicit CoroutineExecutor();
   ~CoroutineExecutor() override;
+  CoroutineExecutor(const CoroutineExecutor &) = delete;
+  CoroutineExecutor(CoroutineExecutor &&) = delete;
+  CoroutineExecutor &operator=(const CoroutineExecutor &) = delete;
+  CoroutineExecutor &operator=(CoroutineExecutor &&) = delete;
 
   ThreadHandle CreateThread(std::function<void()> target) override;
   void DeleteThread(ThreadHandle handle) override;

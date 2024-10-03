@@ -1,0 +1,5 @@
+cc_library(
+    name = "words",
+    hdrs = ["adjectives.h", "nouns.h"],
+    visibility = ["//visibility:public"],
+)

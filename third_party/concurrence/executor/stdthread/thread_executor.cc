@@ -1,4 +1,4 @@
-// Copyright 2022 Google LLC
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,9 +18,9 @@
 
 #include "absl/log/check.h"
 #include "absl/strings/str_format.h"
-#include "executor/executor.h"
+#include "third_party/concurrence/executor/executor.h"
 #include "absl/hash/hash.h"
-#include "executor/stdthread/thread.h"
+#include "third_party/concurrence/executor/stdthread/thread.h"
 
 ThreadExecutor::ThreadExecutor() {
   g_current_thread = MAIN_THREAD_HANDLE;

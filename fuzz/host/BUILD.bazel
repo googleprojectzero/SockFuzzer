@@ -1,0 +1,176 @@
+load("@tools_deps//:requirements.bzl", "requirement")
+
+cc_library(
+    name = "host_interface",
+    hdrs = ["host_interface.h"],
+    deps = [
+        ":logger_headers",
+        "//fuzz/host/hypercall:headers",
+        "//third_party/concurrence/sync",
+    ],
+)
+
+cc_library(
+    name = "headers",
+    hdrs = [
+        "host.h",
+        "hw_ticket_lock_manager.h",
+    ],
+    # TODO(nedwill): visibility should only be for sync_fakes
+    visibility = [
+        "//fuzz/handlers:__pkg__",
+        "//fuzz/host/hypercall:__pkg__",
+        "//fuzz/xnu/osfmk:__pkg__",
+    ],
+    deps = [
+        ":host_interface",
+        "//fuzz/executor:headers",
+        "//fuzz/host/hypercall:headers",
+        "//fuzz/xnu/osfmk:api_headers",
+        "//third_party/concurrence/scheduler:headers",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
+    name = "mock_host",
+    hdrs = [
+        "mock_host.h",
+    ],
+    deps = [":host_interface"],
+)
+
+cc_library(
+    name = "hw_ticket_lock_manager",
+    srcs = ["hw_ticket_lock_manager.cc"],
+    hdrs = [
+        "hw_ticket_lock_manager.h",
+    ],
+    deps = [
+        ":headers",
+        ":host_interface",
+        "//third_party/concurrence/sync",
+    ],
+)
+
+cc_test(
+    name = "hw_ticket_lock_manager_test",
+    size = "small",
+    srcs = ["hw_ticket_lock_manager_test.cc"],
+    deps = [
+        ":hw_ticket_lock_manager",
+        ":logger",
+        ":mock_host",
+        "//third_party/concurrence/scheduler:mock_scheduler",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "logger_headers",
+    hdrs = [
+        "logger.h",
+    ],
+    deps = [
+        "@com_google_absl//absl/status:statusor",
+    ],
+)
+
+cc_library(
+    name = "logger",
+    srcs = [
+        "logger.cc",
+    ],
+    deps = [
+        # For fuzz/host/hypercall/types.h
+        ":headers",
+        ":logger_headers",
+        "//fuzz/host/words",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:flat_hash_set",
+    ],
+)
+
+cc_test(
+    name = "logger_test",
+    size = "small",
+    srcs = ["logger_test.cc"],
+    deps = [
+        ":logger",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+# Integrates Host API with XNU
+cc_library(
+    name = "host",
+    srcs = [
+        "host.S",
+        "host.cc",
+        "//fuzz/xnu:libxnu.o",
+    ],
+    visibility = [
+        "//fuzz/handlers:__pkg__",
+        "//fuzz/target:__pkg__",
+    ],
+    deps = [
+        ":headers",
+        ":hw_ticket_lock_manager",
+        ":logger",
+        "//fuzz/executor:coroutine_executor",
+        "//fuzz/host/hypercall",
+        "//fuzz/xnu/bsd:headers",
+        "//third_party/concurrence/executor",
+        "//third_party/concurrence/scheduler:fuzzed_scheduler",
+        "//third_party/concurrence/sync",
+    ],
+)
+
+# cc_test(
+#     name = "host_test",
+#     size = "small",
+#     srcs = [
+#         "host_test.cc",
+#     ],
+#     deps = [
+#         ":host",
+#         "//fuzz/handlers:mach_message",
+#         "//fuzz/host/hypercall",
+#         "//fuzz/xnu/test:headers",
+#         "@com_google_googletest//:gtest_main",
+#     ],
+# )
+
+cc_library(
+    name = "test_runner_lib",
+    srcs = ["test_runner.c"],
+    deps = [
+        "@cmocka//:cmocka",
+        "//fuzz/host/hypercall:headers",
+        "//fuzz/xnu/osfmk:test_impl_header",
+    ],
+)
+
+cc_test(
+    name = "unit_tests",
+    deps = [
+        ":test_runner_lib",
+        "//fuzz/host:host",
+        "//fuzz/xnu/osfmk:test_impl",
+    ],
+)
+
+py_test(
+    name = "validate_unit_test_sections_test",
+    srcs = ["validate_sections.py"],
+    main = "validate_sections.py",
+    args = [
+        "$(location :unit_tests)",
+    ],
+    data = [":unit_tests"],
+    deps = [
+        requirement("pyelftools"),
+    ],
+)

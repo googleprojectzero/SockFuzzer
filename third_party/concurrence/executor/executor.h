@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Google LLC
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,17 @@
 #define EXECUTOR_H_
 
 #include <stdint.h>
+// Hides implementation details about specific context-switching primitive
+// (currently coroutines and synchronized threads)
+#include <cstddef>
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/hash/hash.h"
+#include "third_party/concurrence/backtrace/backtrace.h"
 
 // Use pointer type as we use pointers the the corresponding C++ objects
 // as handles
@@ -69,7 +74,7 @@ class Executor {
 
  private:
   Executor::CallbackInterface *callbacks_{};
-  absl::flat_hash_map<ThreadHandle, std::vector<void *>> backtraces_;
+  absl::flat_hash_map<ThreadHandle, std::unique_ptr<StackTrace>> backtraces_;
 };
 
 #endif /* EXECUTOR_H_ */

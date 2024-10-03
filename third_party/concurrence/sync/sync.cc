@@ -1,4 +1,4 @@
-// Copyright 2022 Google LLC
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,21 +14,25 @@
 
 #include "sync.h"
 
-#include <cstdlib>
 #include <deque>
+#include <iostream>
+#include <cstdlib>
+#include <string>
 
 #include "absl/hash/hash.h"
-#include "absl/log/log.h"
+#include "absl/log/check.h"
 #include "absl/meta/type_traits.h"
 #include "absl/strings/str_format.h"
-#include "backtrace/backtrace.h"
-#include "scheduler/scheduler.h"
-#include "sync/tracker.h"
+#include "third_party/concurrence/backtrace/backtrace.h"
+#include "third_party/concurrence/scheduler/scheduler.h"
+#include "tracker.h"
+
+extern bool is_verbose;
 
 Sync::Sync(SyncTracker *sync_tracker)
     : sync_tracker_(sync_tracker), scheduler_(sync_tracker->scheduler()) {
-  if (enable_debug_checks_) {
-    GetBacktrace(construction_backtrace_);
+  if (is_verbose) {
+    construction_stacktrace_ = std::make_unique<StackTrace>();
   }
 }
 
@@ -38,15 +42,26 @@ void Sync::AddWaiter() {
   if (IsOwnedBy(g_current_thread)) {
     HandleNestedWait();
   }
-  waiters_.insert(g_current_thread);
-  if (enable_debug_checks_) {
+  // Remove our existing wait if we already are waiting to avoid duplication
+  // TODO(nedwill): add a unit test for this case
+  RemoveWaiter();
+  waiters_.push_back(g_current_thread);
+  if (is_verbose) {
     DetectDeadlock();
   }
 }
 
-void Sync::ClearAndUnblockWaiters() {
+void Sync::RemoveWaiter() {
+  auto it = std::find(waiters_.begin(), waiters_.end(), g_current_thread);
+  if (it == waiters_.end()) {
+    return;
+  }
+  waiters_.erase(it);
+}
+
+void Sync::WakeupWaiters() {
   scheduler_->MakeAllRunnable(waiters_);
-  waiters_.clear();
+  // waiters_.clear();
 }
 
 // The current thread is now a waiter for this sync object. Check for deadlocks.
@@ -66,43 +81,40 @@ void Sync::DetectDeadlock() {
 }
 
 void Sync::HandleNestedWait() {
-  if (enable_debug_checks_) {
-    std::vector<void *> backtrace;
-    GetBacktrace(backtrace);
+  if (is_verbose) {
+    auto stacktrace = std::make_unique<StackTrace>();
 
-    std::vector<void *> original_backtrace =
-        owner_backtraces_[g_current_thread];
+    const auto& original_stacktrace = owner_backtraces_[g_current_thread];
 
-    LOG(INFO) << absl::StrFormat("Nested wait for sync primitive %p\n", this);
-    LOG(INFO) << "\nOriginal ownership acquired:\n";
-    PrintBacktraceFromStack(original_backtrace);
-    LOG(INFO) << "\nTried to wait again on the same object here:\n";
-    PrintBacktraceFromStack(backtrace);
+    std::cout << absl::StrFormat("Nested wait for sync primitive %p\n", this);
+    std::cout << "\nOriginal ownership acquired:\n";
+    original_stacktrace->Print();
+    std::cout << "\nTried to wait again on the same object here:\n";
+    stacktrace->Print();
   }
   abort();
 }
 
 void Sync::HandleBlockedMainThread() {
-  LOG(INFO) << absl::StrFormat(
+  std::cout << absl::StrFormat(
       "\nMain thread %s blocked\n",
       scheduler_->DescribeThreadHandle(g_current_thread));
-  std::vector<void *> backtrace;
-  GetBacktrace(backtrace);
-  PrintBacktraceFromStack(backtrace);
+  auto stacktrace = std::make_unique<StackTrace>();
+  stacktrace->Print();
   Sync *current = this;
   while (current && !current->owners().empty()) {
     // Only consider first owner since we only need one example dependency path
     ThreadHandle owner = *current->owners().begin();
     Sync *blocking_object = sync_tracker_->GetObjectWithWaiter(owner);
-    LOG(INFO) << absl::StrFormat(
+    std::cout << absl::StrFormat(
         "\nBlocked by thread %s (IsRunnable %d) on object %p\n",
         scheduler_->DescribeThreadHandle(owner), scheduler_->IsRunnable(owner),
         blocking_object);
     scheduler_->PrintBacktrace(owner);
-    LOG(INFO) << "\nBacktrace where ownership was acquired\n";
+    std::cout << "\nBacktrace where ownership was acquired\n";
     auto it = owner_backtraces_.find(owner);
     if (it != owner_backtraces_.end()) {
-      PrintBacktraceFromStack(it->second);
+      it->second->Print();
     }
     current = blocking_object;
   }

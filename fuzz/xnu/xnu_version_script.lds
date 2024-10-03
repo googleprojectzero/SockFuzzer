@@ -1,0 +1,43 @@
+{
+  global:
+    *_wrapper;
+    GetThreadState;
+    CloneTaskFromInit;
+    GetTaskFromThread;
+    CreateWaitingThread;
+    _Z*Waitq*;
+    _Z*KHeap*;
+    ClearTaskWait;
+    thread_deallocate;
+    XNUReapInitChildren;
+    nprocs;
+    CheckSchedulerState;
+    thread_set_thread_name;
+    XNUGetThreadInfo;
+    XNUThreadTerminate;
+    ast_taken_user;
+    XNUThreadEnqueueTermination;
+    XNUThreadSchedCallNotifyBlocked;
+    initialize_kernel;
+    XNUCurrentProc;
+    XNUThreadMarkWaitLocked;
+    XNUThreadWait;
+    XNUThreadSignalWake;
+    XNUThreadCancelWaitTimer;
+    XNUThreadSchedCallNotifyUnblocked;
+    XNUThreadAbort;
+    KillAllNonInitProcs;
+    XNUDoRandomSyscall;
+    DoRandomMachTrap;
+    ioctls;
+    siocaifaddr_in6_64;
+    siocsifflags;
+    DoVmFault;
+    get_mbuf_data;
+    # TODO(nedwill): figure out if these are needed for clang coverage build
+    *.__covrec_*;
+    *llvm*;
+    *.__profc_*;
+  local:
+    *;
+};

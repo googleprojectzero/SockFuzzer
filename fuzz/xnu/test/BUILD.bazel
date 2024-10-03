@@ -1,0 +1,23 @@
+load("//third_party/xnu:options.bzl", "OSFMK_DEFINES", "OSFMK_INCLUDES", "XNU_COMPILE_OPTIONS_NO_META", "XNU_INCLUDES", "convert_includes_to_flags")
+
+cc_library(
+    name = "headers",
+    hdrs = ["backend.h"],
+    visibility = ["//fuzz/host:__pkg__"],
+)
+
+# cc_library(
+#     name = "backend",
+#     srcs = ["backend.cc"],
+#     copts = OSFMK_DEFINES + convert_includes_to_flags(XNU_INCLUDES + OSFMK_INCLUDES) + XNU_COMPILE_OPTIONS_NO_META,
+#     linkstatic = 1,
+#     visibility = [
+#         "//fuzz/host:__pkg__",
+#         "//fuzz/xnu:__pkg__",
+#     ],
+#     deps = [
+#         ":headers",
+#         "//third_party/xnu:osfmk_internal_headers",
+#     ],
+#     alwayslink = 1,
+# )
