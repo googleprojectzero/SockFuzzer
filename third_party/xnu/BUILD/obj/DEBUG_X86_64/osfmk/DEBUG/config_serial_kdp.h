@@ -1,1 +1,0 @@
-#define CONFIG_SERIAL_KDP 1
