@@ -1,4 +1,4 @@
-// Copyright 2022 Google LLC
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,19 +14,23 @@
 
 #include "fuzz/executor/coroutine_executor.h"
 
-#include "executor/executor_test_template.h"
+#include <memory>
+
 #include "gtest/gtest.h"
-#include "scheduler/fuzzed_scheduler.h"
-#include "scheduler/fuzzed_scheduler_test_template.h"
+#include "third_party/concurrence/executor/executor_test_template.h"
+#include "third_party/concurrence/scheduler/fuzzed_scheduler.h"
+#include "third_party/concurrence/scheduler/fuzzed_scheduler_test_template.h"
 
 class Scheduler;
 
-Executor *g_executor;
+bool is_verbose = false;
 
-Scheduler *g_scheduler;
+Executor* g_executor;
+
+Scheduler* g_scheduler;
 
 template <>
-Executor *CreateExecutor<CoroutineExecutor>() {
+Executor* CreateExecutor<CoroutineExecutor>() {
   return new CoroutineExecutor;
 }
 
@@ -37,7 +41,7 @@ INSTANTIATE_TYPED_TEST_SUITE_P(CoroutineExecutorTests, ExecutorTest,
                                ExecutorImplementation);
 
 template <>
-Scheduler *CreateScheduler<CoroutineExecutor>() {
+Scheduler* CreateScheduler<CoroutineExecutor>() {
   return new FuzzedScheduler(new CoroutineExecutor,
                              new EmptySchedulerCallbacks);
 }

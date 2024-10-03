@@ -1,0 +1,21 @@
+cc_library(
+    name = "utility",
+    srcs = ["utility.cc"],
+    hdrs = ["utility.h"],
+    visibility = [
+        "//fuzz:__subpackages__",
+    ],
+    deps = [
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings:str_format",
+    ],
+)
+
+cc_test(
+    name = "utility_test",
+    srcs = ["utility_test.cc"],
+    deps = [
+        ":utility",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

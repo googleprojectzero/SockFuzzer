@@ -1,68 +1,100 @@
-# SockFuzzer
+# SockFuzzer: XNU Kernel Fuzzing Framework
 
-This repository contains SockFuzzer, a fork of XNU that contains support
-for fuzzing the network stack in userland on macOS and Linux-based hosts.
+## Project Status
 
-# Building and Using the Fuzzer
+SockFuzzer, originally designed as a networking-focused fuzzer for the XNU kernel (used in macOS and iOS), has evolved into a comprehensive kernel fuzzing framework. While retaining its original name as a nod to its roots, SockFuzzer now covers a wide range of kernel subsystems, including BSD, Mach, virtual memory, and more. The project implements a unique approach by converting the XNU kernel into a library that can be "booted" and fuzzed in userspace, allowing for efficient vulnerability discovery and reproduction across multiple subsystems.
 
-NOTE: The project is moving to a Bazel-based build system. The following steps
-work for now but will be updated once the new build system is published.
+## Project Goals
 
-Build the fuzzer the same way you would typically build a project using CMake
-for your platform. For example:
+1. Comprehensively test the XNU kernel in a controlled environment
+2. Discover and reproduce vulnerabilities across various XNU subsystems
+3. Provide a framework for continuous fuzzing and improvement of XNU security
+4. Demonstrate the value of implementing advanced fuzzing techniques in kernel research
+5. Enable efficient testing of complex kernel interactions and subsystems
 
-```
-$ mkdir build; cd build
-$ CC=clang CXX=clang++ cmake -GNinja ..
-$ ninja
-```
+## Architecture Overview
 
-You can now run the `net_fuzzer` binary, optionally providing parameters as
-described in the [libFuzzer documentation](https://llvm.org/docs/LibFuzzer.html).
+SockFuzzer employs a host/"XNU guest" design, where the XNU kernel is compiled as a library and run within a custom userspace environment. This architecture consists of several key components:
 
-A Dockerfile is included which shows how to prepare a Debian environment to build
-the project. Feel free to use this container to build and run the fuzzer.
+1. Host Environment
+2. XNU Guest Library
+3. Custom Scheduler (based on Concurrence)
+4. Fuzzing Engine (Centipede from Google's fuzztest project)
+5. Test Runner and Harness
 
-# Extending the Fuzzer
+### Host Environment
 
-This project is currently an all-in-one fuzzer for XNU networking. You can extend
-it by adding additional targets to CMakeLists.txt or by extending the existing
-network target. Nothing about this project specifically prevents the testing of
-additional non-networking subsystems, so feel free to extend it to test other
-areas.
+The host environment provides the foundation for running the XNU guest library and managing the fuzzing process. It includes:
 
-# Generating and Reviewing Coverage Reports
+- Custom implementations of core kernel services
+- Hypercall interface for communication between the host and XNU guest
+- Test runner and harness for executing fuzz tests
 
-Coverage reports are an important way to review the quality of the current
-fuzzer implementation. On Linux, a `net_cov` binary is generated containing
-[LLVM's source based code-coverage](https://clang.llvm.org/docs/SourceBasedCodeCoverage.html)
-instrumentation.
+### XNU Guest Library
 
-At the time of writing, the following commands product an HTML coverage report located
-in the `report` folder after running all of the testcases located in the `corpus` folder.
+The XNU kernel is compiled as a library (`libxnu`) with minimal modifications to run in userspace. Key aspects include:
 
-```
-./net_cov corpus
-llvm-profdata merge -sparse default.profraw -o default.profdata
-llvm-cov show -format=html -output-dir=report -instr-profile=default.profdata net_cov
-```
+- Symbol prefixing and management to avoid conflicts with host symbols
+- Selective exposure of internal XNU functions through a version script
+- Support for multiple subsystems: BSD, Mach, virtual memory, threads, processes, etc.
+- Null pmap layer for virtual memory support (with plans to support ARM pmap in the future)
 
-# Importing upstream XNU releases
+### Custom Scheduler
 
-A macOS environment is needed to generate the new files. Unpack the new source tarball
-replacing third_party/xnu. Then run the following command, updating SDKROOT as needed.
-Then you can add BUILD/obj/EXPORT_HDRS and BUILD/obj/DEBUG_X86_64 to the git repo.
-You'll also need to rebase any changes to the original XNU sources. In some cases, the
-outer CMakeLists.txt must also be updated to reflect new or deleted source paths.
+Based on the improved Concurrence project, the custom scheduler now supports full threading capabilities:
 
-I use an upstream branch to facilitate merging my patches with the upstream changes.
+- Executor: Provides thread creation, deletion, and context switching
+- FuzzedScheduler: Manages thread states and scheduling decisions
+- Integration with the XNU guest library for proper multithreading support
 
-```
-# From inside third_party/xnu
-$ make SDKROOT=macosx11.1 ARCH_CONFIGS=X86_64 KERNEL_CONFIGS=DEBUG
-$ git add BUILD/obj/EXPORT_HDRS EXTERNAL_HEADERS
-```
+### Test Runner and Harness
 
-# Disclaimer
+The test runner and harness manage the execution of fuzz tests and provide:
 
-This is not an official Google product.
+- Initialization of the XNU guest environment
+- Execution of fuzz inputs across various subsystems
+- Crash detection and reporting
+
+## Key Features
+
+1. Comprehensive XNU Kernel Coverage: Test multiple subsystems including BSD, Mach, virtual memory, threads, and processes
+2. Userspace XNU Execution: Run XNU kernel components in a controlled userspace environment
+3. Full Threading Support: Leverage improved Concurrence for proper multithreading capabilities
+4. Virtual Memory Support: Utilize a null pmap layer with plans for ARM pmap support
+5. MIG Fuzzing: Support for fuzzing Mach Interface Generator (MIG) interfaces
+6. Hypercall Interface: Facilitate communication between host and XNU guest components
+
+## Supported Features
+
+1. BSD
+2. Mach
+3. Virtual Memory (with null pmap layer)
+4. Threads and Processes
+5. Networking
+6. Mach Messages
+7. MIG Interfaces
+
+## Workflow
+
+1. The XNU kernel is compiled as a library with necessary modifications
+2. The host environment initializes the XNU guest library and custom scheduler
+3. Centipede generates structured inputs using protobuf definitions
+4. The test harness executes the inputs, invoking syscalls, Mach messages, and other kernel interfaces
+5. The custom scheduler manages thread execution within the XNU guest
+6. ASAN monitors for memory corruption issues
+7. Crashes and coverage information are collected and analyzed
+
+## Limitations and Future Work
+
+1. IOKit Support: The current implementation does not support IOKit subsystems
+2. Binary-only Fuzzing: The approach currently relies on source code which doesn't include all modules
+
+Future work includes:
+- Implementing IOKit support
+- Integrating ARM pmap support for virtual memory
+- Adapting techniques for binary-only fuzzing scenarios
+- Continuing to expand coverage and support for XNU subsystems
+
+## Public Release Limitations
+
+In order to keep this repository well-factored, several dependencies will need to be added by users themselves to third_party, such as xnu, bootstrap_cmds, and a few other libraries.

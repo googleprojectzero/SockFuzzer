@@ -1,0 +1,171 @@
+/*
+ * Copyright 2024 Google LLC
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ *
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ */
+
+syntax = "proto2";
+
+import "fuzz/proto/common.proto";
+
+// TODO(nedwill): make this a oneof and have task_self be an additional option
+message TaskPort {
+  optional PortNumberMach port = 1;
+}
+
+message VmProt {
+  optional bool read = 1;
+  optional bool write = 2;
+  optional bool execute = 3;
+}
+
+enum VmInherit {
+  FUZZER_VM_INHERIT_SHARE = 0;
+  FUZZER_VM_INHERIT_COPY = 1;
+  FUZZER_VM_INHERIT_NONE = 2;
+  FUZZER_VM_INHERIT_DONATE_COPY = 3;
+}
+
+message VmSync {
+  optional bool asynchronous = 1;
+  optional bool synchronous = 2;
+  optional bool invalidate = 3;
+  optional bool killpages = 4;
+  optional bool deactivate = 5;
+  optional bool contiguous = 6;
+  optional bool reusablepages = 7;
+}
+
+enum VmBehavior {
+  FUZZED_VM_BEHAVIOR_DEFAULT = 0;
+  FUZZED_VM_BEHAVIOR_RANDOM = 1;
+  FUZZED_VM_BEHAVIOR_SEQUENTIAL = 2;
+  FUZZED_VM_BEHAVIOR_RSEQNTL = 3;
+  FUZZED_VM_BEHAVIOR_WILLNEED = 4;
+  FUZZED_VM_BEHAVIOR_DONTNEED = 5;
+  FUZZED_VM_BEHAVIOR_FREE = 6;
+  FUZZED_VM_BEHAVIOR_ZERO_WIRED_PAGES = 7;
+  FUZZED_VM_BEHAVIOR_REUSABLE = 8;
+  FUZZED_VM_BEHAVIOR_REUSE = 9;
+  FUZZED_VM_BEHAVIOR_CAN_REUSE = 10;
+  FUZZED_VM_BEHAVIOR_PAGEOUT = 11;
+}
+
+enum VmMachineAttribute {
+  FUZZED_MATTR_CACHE = 1;
+  FUZZED_MATTR_MIGRATE = 2;
+  FUZZED_MATTR_REPLICATE = 4;
+}
+
+enum VmMachineAttributeVal {
+  FUZZED_MATTR_VAL_OFF = 0;
+  FUZZED_MATTR_VAL_ON = 1;
+  FUZZED_MATTR_VAL_GET = 2;
+  FUZZED_MATTR_VAL_CACHE_FLUSH = 6;
+  FUZZED_MATTR_VAL_DCACHE_FLUSH = 7;
+  FUZZED_MATTR_VAL_ICACHE_FLUSH = 8;
+  FUZZED_MATTR_VAL_CACHE_SYNC = 9;
+  FUZZED_MATTR_VAL_GET_INFO = 10;
+}
+
+enum VmPurgable {
+  FUZZED_VM_PURGABLE_SET_STATE = 0;
+  FUZZED_VM_PURGABLE_GET_STATE = 1;
+  FUZZED_VM_PURGABLE_PURGE_ALL = 2;
+  FUZZED_VM_PURGABLE_SET_STATE_FROM_KERNEL = 3;
+}
+
+enum MachPortFlavor {
+  FUZZED_MACH_PORT_LIMITS_INFO = 1;
+  FUZZED_MACH_PORT_RECEIVE_STATUS = 2;
+  FUZZED_MACH_PORT_DNREQUESTS_SIZE = 3;
+  FUZZED_MACH_PORT_TEMPOWNER = 4;
+  FUZZED_MACH_PORT_IMPORTANCE_RECEIVER = 5;
+  FUZZED_MACH_PORT_DENAP_RECEIVER = 6;
+  FUZZED_MACH_PORT_INFO_EXT = 7;
+  FUZZED_MACH_PORT_GUARD_INFO = 8;
+}
+
+message MachPortQos {
+  optional bool name = 1;
+  optional bool prealloc = 2;
+  optional int32 len = 3;
+}
+
+enum HostFlavor {
+  HOST_BASIC_INFO = 1;      /* basic info */
+  HOST_SCHED_INFO = 3;      /* scheduling info */
+  HOST_RESOURCE_SIZES = 4;  /* kernel struct sizes */
+  HOST_PRIORITY_INFO = 5;   /* priority information */
+  HOST_SEMAPHORE_TRAPS = 7; /* Has semaphore traps */
+  HOST_MACH_MSG_TRAP = 8;   /* Has mach_msg_trap */
+  HOST_VM_PURGABLE = 9;     /* purg'e'able memory info */
+  HOST_DEBUG_INFO_INTERNAL =
+      10; /* Used for kernel internal development tests only */
+  HOST_CAN_HAS_DEBUGGER = 11;
+  HOST_PREFERRED_USER_ARCH = 12; /* Get the preferred user-space architecture */
+}
+
+enum ProcessorFlavor {
+  PROCESSOR_BASIC_INFO = 1;            /* basic information */
+  PROCESSOR_CPU_LOAD_INFO = 2;         /* cpu load information */
+  PROCESSOR_PM_REGS_INFO = 0x10000001; /* performance monitor register info */
+  PROCESSOR_TEMPERATURE = 0x10000002;  /* Processor core temperature */
+}
+
+message MachTimespec {
+  optional int32 a1 = 1;
+  optional int32 a2 = 2;
+}
+
+message MachZoneName {
+  optional string mzn_name = 1;
+}
+
+message FsobjId {
+  optional uint32 fid_objno = 1;
+  optional uint32 fid_generation = 2;
+}
+
+message Fsid {
+  optional int32 id1 = 1;
+  optional int32 id2 = 2;
+}
+
+message DyldKernelImageInfo {
+  optional bytes uuid = 1;
+  optional FsobjId fs_obj_id = 2;
+  optional Fsid fsid = 3;
+  optional uint64 load_addr = 4;
+}
+
+message AuditToken {
+  optional bytes val = 1;
+}
+
+message SecurityToken {
+  optional int32 token1 = 1;
+  optional int32 token2 = 2;
+}

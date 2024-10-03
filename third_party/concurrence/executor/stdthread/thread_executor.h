@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Google LLC
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,8 +23,8 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/synchronization/mutex.h"
-
-#include "executor/executor.h"
+#include "third_party/concurrence/executor/executor.h"
+#include "thread.h"
 
 class CooperativeThread;
 
@@ -32,6 +32,10 @@ class ThreadExecutor : public Executor {
  public:
   ThreadExecutor();
   ~ThreadExecutor() override;
+  ThreadExecutor(const ThreadExecutor &) = delete;
+  ThreadExecutor(ThreadExecutor &&) = delete;
+  ThreadExecutor &operator=(const ThreadExecutor &) = delete;
+  ThreadExecutor &operator=(ThreadExecutor &&) = delete;
 
   ThreadHandle CreateThread(std::function<void()> target) override;
   void DeleteThread(ThreadHandle handle) override;

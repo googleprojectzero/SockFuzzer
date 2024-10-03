@@ -1,0 +1,195 @@
+/*
+ * Copyright 2024 Google LLC
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ *
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ */
+
+syntax = "proto2";
+
+import "fuzz/proto/bsd_types.proto";
+import "fuzz/proto/bsd_enums.proto";
+
+message ConnectX {
+  required FileDescriptor socket = 1;
+  required Endpoints endpoints = 2;
+  required SaeAssocID associd = 3;
+  repeated ConnectXFlag flags = 4;
+  // user_addr_t iov;
+  // unsigned int iovcnt;
+  // TODO(nedwill): support IOV
+  // repeated IOV connectx_iovs = 5;
+}
+
+message DisconnectX {
+  required SaeAssocID associd = 1;
+  required int32 cid = 2;
+  required FileDescriptor fd = 3;
+}
+
+message Endpoints {
+  required IfIdx sae_srcif = 1;
+  optional SockAddr sae_srcaddr = 2;
+  required SockAddr sae_dstaddr = 3;
+}
+
+// message RecvmsgX {
+//   optional int32 s = 1;
+//   optional StructMsghdrx msgp = 2;
+//   optional uint32 cnt = 3;
+//   optional RecvmsgXFlags flags = 4;
+// }
+
+// message SendmsgX {
+//   optional int32 s = 1;
+//   optional StructMsghdrx msgp = 2;
+//   optional uint32 cnt = 3;
+//   optional SendmsgXFlags flags = 4;
+// }
+
+message NecpSessionAction {
+  optional FileDescriptor necp_fd = 1;
+  optional NecpSessionActionNumber action = 2;
+  optional bytes in_buffer = 3;
+  optional uint32 out_buffer_size = 4;
+}
+
+// TODO(nedwill): support null client
+enum NecpClientId {
+  CLIENT_0 = 0;
+  CLIENT_1 = 1;
+  CLIENT_2 = 2;
+}
+
+message NecpClientAction {
+  optional FileDescriptor necp_fd = 1;
+  optional NecpClientId client_id = 3;
+  // TODO(nedwill): remove these fields
+  // optional NecpClientActionNumber action = 2;
+  // optional bytes buffer = 4;
+
+  oneof action {
+    NecpClientActionAdd add = 5;
+    NecpClientActionRemove remove = 6;
+    NecpClientActionCopyParameters copy_parameters = 7;
+    // TODO(nedwill): implement remaining necp client commands
+    // NECP_CLIENT_ACTION_COPY_RESULT = 8; // Copy client result. Input:
+    // client_id; Output: result in buffer NECP_CLIENT_ACTION_COPY_LIST = 9; //
+    // Copy all client IDs. Output: struct necp_client_list in buffer
+    // TODO(nedwill): this isn't actually used?
+    // NecpClientActionRequestNexusInstance request_nexus_instance = 10;
+    NecpClientActionAgent agent = 11;
+    // NECP_CLIENT_ACTION_COPY_AGENT = 12; // Copy agent content. Input: agent
+    // UUID; Output: struct netagent NECP_CLIENT_ACTION_COPY_INTERFACE = 13; //
+    // Copy interface details. Input: ifindex cast to UUID; Output: struct
+    // necp_interface_details NECP_CLIENT_ACTION_SET_STATISTICS = 14; //
+    // Deprecated NECP_CLIENT_ACTION_COPY_ROUTE_STATISTICS = 15; // Get route
+    // statistics. Input: client_id; Output: struct necp_stat_counts
+    // NECP_CLIENT_ACTION_AGENT_USE = 16; // Return the use count and increment
+    // the use count. Input/Output: struct necp_agent_use_parameters
+    // NECP_CLIENT_ACTION_MAP_SYSCTLS = 17; // Get the read-only sysctls memory
+    // location. Output: mach_vm_address_t NECP_CLIENT_ACTION_UPDATE_CACHE = 18;
+    // // Update heuristics and cache NECP_CLIENT_ACTION_COPY_CLIENT_UPDATE =
+    // 19; // Fetch an updated client for push-mode observer. Output: Client id,
+    // struct necp_client_observer_update in buffer
+    // NECP_CLIENT_ACTION_COPY_UPDATED_RESULT = 20; // Copy client result only
+    // if changed. Input: client_id; Output: result in buffer
+    // TODO(nedwill): these aren't implemented?
+    // NECP_CLIENT_ACTION_ADD_FLOW = 21; // Add a flow. Input: client_id;
+    // Output: struct necp_client_add_flow NECP_CLIENT_ACTION_REMOVE_FLOW = 22;
+    // // Remove a flow. Input: flow_id, optional struct ifnet_stats_per_flow
+  }
+}
+
+message NecpClientActionAdd {
+  optional bytes buffer = 1;
+}
+
+message NecpClientActionRemove {}
+
+message NecpClientActionCopyParameters {
+  optional uint32 copyout_size = 1;
+}
+
+message IoctlReal {
+  oneof ioctl {
+    In6_AliasReq_64 siocaifaddr_in6_64 = 1;
+    IfReqFlags siocsifflags = 3;
+  }
+  optional FileDescriptor fd = 2;
+}
+
+message Packet {
+  oneof packet {
+    TcpPacket tcp_packet = 1;
+    Tcp6Packet tcp6_packet = 2;
+    Ip4Packet ip4_packet = 3;
+    Ip6Packet ip6_packet = 4;
+    // TODO(nedwill): more packet types
+    // Stf4Packet,
+    // Udp6Packet,
+    // Rip6Packet,
+    // Icmp6Packet,
+    // Dest6Packet,
+    // Route6Packet,
+    // Frag6Packet,
+    // Ah6Packet,
+    // Esp6Packet,
+    // Ipcomp6Packet,
+    // Encap6Packet,
+    // Gif4Packet,
+    // Gif6Packet,
+    // Udp4Packet,
+    // Rip4Packet,
+    // Icmp4Packet,
+    // Igmp4Packet,
+    // Gre4Packet,
+    // Ah4Packet,
+    // Esp4Packet,
+    // Ipcomp4Packet,
+    // Encap4Packet,
+    // Div4Packet,
+
+    // TODO(nedwill): enable this once other types are finished
+    bytes raw_ip4 = 1000;
+    bytes raw_ip6 = 1001;
+  }
+  // TODO(nedwill): specify metadata here for layout of mbuf
+}
+
+message Key {
+  required bytes mbuf_data = 1;
+}
+
+message Ioctl {
+  required IoctlIdx ioctl_idx = 1;
+  required FileDescriptor fd = 2;
+}
+
+message KEvent {
+  required uint32 kq = 1;
+  repeated KEventStruct changelist = 2;
+  repeated KEventStruct eventlist = 3;
+  // TODO: timeout
+}

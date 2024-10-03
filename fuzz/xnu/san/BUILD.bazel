@@ -1,0 +1,10 @@
+load("//third_party/xnu:options.bzl", "SAN_DEFINES", "XNU_COMPILE_OPTIONS", "XNU_INCLUDES", "SAN_INCLUDES", "convert_includes_to_flags")
+
+cc_library(
+    name = "san",
+    srcs = ["fakes/san.c"],
+    copts = SAN_DEFINES + XNU_COMPILE_OPTIONS + convert_includes_to_flags(XNU_INCLUDES + SAN_INCLUDES),
+    linkstatic = 1,
+    visibility = ["//fuzz/xnu:__pkg__"],
+    deps = ["//third_party/xnu:san_internal"],
+)

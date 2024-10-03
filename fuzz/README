@@ -1,0 +1,14 @@
+Directories
+
+* common
+  * Code shared between targets
+* concurrence
+  * Adapter for Host
+* host
+  * Headers for "hypercalls" into host environment from the fuzzer
+* targets
+  * mach_port_fuzzer
+* test
+  * Integration tests
+* xnu
+  * SockFuzzer code that links into the XNU binary symbol space

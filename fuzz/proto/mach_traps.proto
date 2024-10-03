@@ -1,0 +1,247 @@
+/*
+ * Copyright 2024 Google LLC
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ *
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ */
+
+syntax = "proto2";
+
+import "fuzz/proto/mach_message.proto";
+import "third_party/bootstrap_cmds/mig_generated.proto";
+
+message MkTimerCreateTrap {}
+
+message MkTimerDestroyTrap {
+  optional MachPortName name = 1;
+}
+
+message MkTimerArmTrap {
+  optional MachPortName name = 1;
+  optional uint64 expire_time = 2;
+}
+
+message MkTimerCancelTrap {
+  optional MachPortName name = 1;
+  // addr
+  // optional uint64 result_time = 2;
+}
+
+message MkTimerArmLeewayTrap {
+  optional MachPortName name = 1;
+  optional uint64 mk_timer_flags = 2;
+  optional uint64 expire_time = 3;
+  optional uint64 mk_leeway = 4;
+}
+
+message HostCreateMachVoucherTrap {
+  optional MachPortName host = 1;
+  optional bytes recipes = 2;
+  optional uint64 addr = 3;
+}
+
+message MachVoucherExtractAttrRecipeTrap {
+  optional MachPortName voucher_name = 1;
+  optional uint32 key = 2;
+  optional bytes recipe = 3;
+}
+
+message MachVmAllocateTrap {
+  // MachPortName target
+  optional MachPortName target = 1;
+  optional uint64 addr = 2;
+  optional uint64 size = 3;
+  optional int32 flags = 4;
+}
+
+message MachVmPurgableControl {
+  optional MachPortName target = 1;
+  optional uint64 address = 2;
+  optional int32 control = 3;
+  optional uint64 state = 4;
+}
+
+message MachVmDeallocateTrap {
+  optional MachPortName target = 1;
+  optional uint64 address = 2;
+  optional uint64 size = 3;
+}
+
+message TaskDyldProcessInfoNotifyGet {
+  optional uint64 names_addr = 1;
+  optional uint64 names_count_addr = 2;
+}
+
+message MachVmProtectTrap {
+  optional MachPortName target = 1;
+  optional uint64 address = 2;
+  optional uint64 size = 3;
+  optional bool set_maximum = 4;
+  repeated VmProtection new_protection = 5;
+}
+
+message MachVmMapTrap {
+  optional MachPortName target = 1;
+  optional uint64 addr = 2;
+  optional uint64 size = 3;
+  optional int32 mask = 4;
+  optional int32 flags = 5;
+  repeated VmProtection cur_protection = 6;
+}
+
+message MachPortAllocateTrap {
+  optional MachPortName target = 1;
+  optional MachPortRight right = 2;
+  // optional uint64 name = 3;
+}
+
+message MachPortDeallocateTrap {
+  optional MachPortName target = 1;
+  optional MachPortName name = 2;
+}
+
+message MachPortModRefsTrap {
+  optional MachPortName target = 1;
+  optional MachPortName name = 2;
+  optional MachPortRight right = 3;
+  optional int32 delta = 4;
+}
+
+message MachPortMoveMemberTrap {
+  optional MachPortName target = 1;
+  optional MachPortName member = 2;
+  optional MachPortName after = 3;
+}
+
+message MachPortInsertRightTrap {
+  optional MachPortName target = 1;
+  optional MachPortName name = 2;
+  optional MachPortName poly = 3;
+  optional MachMsgTypeName polypoly = 4;
+}
+
+message MachPortInsertMemberTrap {
+  optional MachPortName target = 1;
+  optional MachPortName name = 2;
+  optional MachPortName pset = 3;
+}
+
+message MachPortExtractMemberTrap {
+  optional MachPortName target = 1;
+  optional MachPortName name = 2;
+  optional MachPortName pset = 3;
+}
+
+message MachPortLimits {
+  optional uint32 limit = 1;
+}
+
+message MachPortOptions {
+  repeated MachPortOptionsFlag flags = 1;
+  optional MachPortLimits limits = 2;
+  optional MachPortName work_interval_port = 3;
+}
+
+message MachPortConstructTrap {
+  optional MachPortName target = 1;
+  optional MachPortOptions options = 2;
+  optional uint64 context = 3;
+  // optional uint64 name = 4;
+}
+
+message MachPortDestructTrap {
+  optional MachPortName target = 1;
+  optional MachPortName name = 2;
+  optional int32 srdelta = 3;
+  optional uint64 guard = 4;
+}
+
+message MachReplyPort {}
+message ThreadSelf {}
+message TaskSelf {}
+message HostSelf {}
+
+message MachMsgOverwrite {
+  // optional uint64 msg = 1;
+  optional MachMsg msg = 1;
+  repeated MachMsgOverwriteOption options = 2;
+  // optional uint32 send_size = 3;
+  optional uint32 rcv_size = 3;
+  optional MachPortName rcv_name = 4;
+  optional int32 timeout = 5;
+  optional int32 priority = 6;
+  optional uint64 rcv_msg = 7;
+}
+
+message MigRoutineMachMsg {
+  optional MigRoutine routine = 1;
+  repeated MachMsgOverwriteOption options = 2;
+  // optional uint32 send_size = 3;
+  optional uint32 rcv_size = 3;
+  optional MachPortName rcv_name = 4;
+  optional int32 timeout = 5;
+  optional int32 priority = 6;
+  optional uint64 rcv_msg = 7;
+  // TODO(nedwill): synthetic part of the message to fuzz port numbers
+  // MIG itself doesn't have a notion of what to use here
+  optional MachPortName remote_port = 8;
+  optional MachPortName local_port = 9;
+  optional MachPortName voucher_port = 10;
+  optional MachMsgTypeName remote_type = 11;
+  optional MachMsgTypeName local_type = 12;
+  optional MachMsgTypeName voucher_type = 13;
+}
+
+message VmFaultException {
+  // TODO(nedwill): use a custom address type with better probabilities
+  optional uint64 addr = 1;
+  optional VmProtection type = 2;
+}
+
+// TODO(nedwill): cover more cases from third_party/xnu/osfmk/arm64/sleh.c
+message ProcessorException {
+  oneof exception {
+    VmFaultException vm_fault = 1;
+  }
+}
+
+enum NotificationId {
+  MACH_NOTIFY_FIRST = 64;
+  MACH_NOTIFY_PORT_DELETED = 65;
+  MACH_NOTIFY_SEND_POSSIBLE = 66;
+  MACH_NOTIFY_PORT_DESTROYED = 69;
+  MACH_NOTIFY_NO_SENDERS = 70;
+  MACH_NOTIFY_SEND_ONCE = 71;
+  MACH_NOTIFY_DEAD_NAME = 72;
+  MACH_NOTIFY_LAST = 77;
+}
+
+message MachPortRequestNotificationTrap {
+  optional MachPortName target = 1;
+  optional MachPortName name = 2;
+  optional NotificationId msgid = 3;
+  optional int64 sync = 4;
+  optional MachPortName notify = 5;
+  optional MachMsgTypeName notify_poly = 6;
+}

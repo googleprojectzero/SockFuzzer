@@ -1,0 +1,96 @@
+/*
+ * Copyright 2021 Google LLC
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ *
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ */
+
+syntax = "proto2";
+
+import "fuzz/proto/bsd.proto";
+import "tools/generate_syscall/bsd_syscalls_generated.proto";
+import "fuzz/proto/common.proto";
+import "fuzz/proto/mach_message.proto";
+import "fuzz/proto/mach_traps.proto";
+import "fuzz/proto/schedule.proto";
+
+message Session {
+  repeated Command commands1 = 1;
+  repeated Command commands2 = 2;
+  repeated Command commands3 = 3;
+  required Schedule schedule = 4;
+  required bytes xnu_data_provider = 5;
+}
+
+message EmptyMessage {}
+
+message Command {
+  oneof command {
+    MachVmAllocateTrap mach_vm_allocate_trap = 1;
+    MachVmPurgableControl mach_vm_purgable_control = 2;
+    MachVmDeallocateTrap mach_vm_deallocate_trap = 3;
+    TaskDyldProcessInfoNotifyGet task_dyld_process_info_notify_get = 4;
+    MachVmProtectTrap mach_vm_protect_trap = 5;
+    MachVmMapTrap mach_vm_map_trap = 6;
+    MachPortAllocateTrap mach_port_allocate = 7;
+    MachPortDeallocateTrap mach_port_deallocate = 8;
+    MachPortModRefsTrap mach_port_mod_refs = 9;
+    MachPortMoveMemberTrap mach_port_move_member = 10;
+    MachPortInsertRightTrap mach_port_insert_right = 11;
+    MachPortInsertMemberTrap mach_port_insert_member = 12;
+    MachPortExtractMemberTrap mach_port_extract_member = 13;
+    MachPortConstructTrap mach_port_construct = 14;
+    MachPortDestructTrap mach_port_destruct = 15;
+    MachReplyPort mach_reply_port = 16;
+    ThreadSelf thread_self = 17;
+    TaskSelf task_self = 18;
+    HostSelf host_self = 19;
+    MachMsgOverwrite mach_msg = 20;
+    MachMsgOverwrite mach_msg_overwrite = 21;
+    HostCreateMachVoucherTrap host_create_mach_voucher_trap = 22;
+    MachVoucherExtractAttrRecipeTrap mach_voucher_extract_attr_recipe_trap = 23;
+    EmptyMessage thread_get_special_reply_port = 26;
+    MkTimerCreateTrap mk_timer_create_trap = 27;
+    MkTimerDestroyTrap mk_timer_destroy_trap = 28;
+    MkTimerArmTrap mk_timer_arm_trap = 29;
+    MkTimerCancelTrap mk_timer_cancel_trap = 30;
+    MkTimerArmLeewayTrap mk_timer_arm_leeway_trap = 31;
+    ArbitrarySyscall arb_bsd_syscall = 32;
+    ArbitrarySyscall arb_mach_trap = 33;
+    Packet ip_input = 34;
+    Ioctl ioctl = 35;
+    IoctlReal ioctl_real = 37;
+
+    ConnectX connectx = 38;
+    DisconnectX disconnectx = 41;
+    NecpClientAction necp_client_action = 49;
+    NecpSessionAction necp_session_action = 51;
+    MigRoutineMachMsg mig_routine_mach_msg = 64;
+    KEvent kevent = 66;
+    ProcessorException processor_exception = 67;
+    BsdSyscall syscall = 69;
+    MachPortRequestNotificationTrap mach_port_request_notification_trap = 70;
+    MachMsg2Trap mach_msg2_trap = 71;
+  }
+}

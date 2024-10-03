@@ -1,0 +1,137 @@
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_image",
+)
+load("//:bazel/generic_cc_binary.bzl", "generic_cc_binary")
+
+generic_cc_binary(
+    name = "xnu_fuzzer_centipede",
+    cc_binary_target = ":xnu_fuzzer",
+    compilation_mode = "opt",
+    copts = [
+        "-fno-builtin",
+        "-gline-tables-only",
+        "-fsanitize-coverage=trace-pc-guard,pc-table,control-flow",
+    ],
+    linkopts = [
+        "-fno-builtin",
+        "-gline-tables-only",
+        "-fsanitize-coverage=trace-pc-guard,pc-table,control-flow",
+    ],
+    platform_suffix = "centipede",
+)
+
+generic_cc_binary(
+    name = "xnu_fuzzer_asan_dbg",
+    cc_binary_target = ":xnu_fuzzer",
+    compilation_mode = "dbg",
+    copts = ["-fsanitize=address"],
+    linkopts = ["-fsanitize=address"],
+    platform_suffix = "asan",
+    visibility = [
+        "//tools/group_crashes/backend:__pkg__",
+        "//tools/group_crashes/backend/services:__pkg__",
+    ],
+)
+
+generic_cc_binary(
+    name = "xnu_fuzzer_asan_opt",
+    cc_binary_target = ":xnu_fuzzer",
+    compilation_mode = "opt",
+    copts = ["-fsanitize=address"],
+    linkopts = ["-fsanitize=address"],
+    platform_suffix = "asan",
+)
+
+# TODO(nedwill): this runs in an unbounded fashion never finishing compilation
+# generic_cc_binary(
+#     name = "xnu_fuzzer_coverage",
+#     cc_binary_target = ":xnu_fuzzer",
+#     compilation_mode = "opt",
+#     copts = [
+#         "-fprofile-instr-generate",
+#         "-fcoverage-mapping",
+#     ],
+#     linkopts = ["-fprofile-instr-generate"],
+#     platform_suffix = "clang-coverage",
+# )
+
+generic_cc_binary(
+    name = "centipede",
+    cc_binary_target = "@com_google_fuzztest//centipede:centipede",
+    compilation_mode = "dbg",
+    platform_suffix = "",
+)
+
+py_library(
+    name = "fuzz_job",
+    srcs = [
+        "fuzz_job.py",
+    ],
+)
+
+py_test(
+    name = "fuzz_job_test",
+    srcs = [
+        "fuzz_job_test.py",
+    ],
+    deps = [
+        ":fuzz_job",
+    ],
+)
+
+container_image(
+    name = "app",
+    # References container_pull from WORKSPACE (above)
+    base = "@sockfuzzer_base_image//image",
+    cmd = [
+        "python3",
+        "/fuzz/target/fuzz_job.py",
+    ],
+    directory = "/fuzz/target",
+    env = {
+        "LD_LIBRARY_PATH": "/lib",
+        "ASAN_SYMBOLIZER_PATH": "/bin/llvm-symbolizer",
+        "ASAN_OPTIONS": "detect_leaks=0",
+    },
+    files = [
+        ":centipede",
+        ":fuzz_job",
+        ":xnu_fuzzer_asan_opt",
+        ":xnu_fuzzer_centipede",
+    ],
+)
+
+cc_binary(
+    name = "xnu_fuzzer",
+    srcs = ["//fuzz/xnu:libxnu.o"],
+    linkopts = [
+        "-lrt",
+    ],
+    deps = [
+        ":xnu_fuzzer_lib",
+        "@com_google_fuzztest//centipede:centipede_runner",
+    ],
+)
+
+cc_library(
+    name = "xnu_fuzzer_lib",
+    srcs = [
+        "xnu_fuzzer.cc",
+    ],
+    includes = [
+        "third_party/libprotobuf-mutator",
+    ],
+    visibility = ["//:__pkg__"],
+    deps = [
+        "//fuzz/common:utility",
+        "//fuzz/handlers:session",
+        "//fuzz/host/hypercall",
+        "//third_party/libprotobuf-mutator:libprotobuf_mutator",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/flags:parse",
+        "@com_google_absl//absl/flags:usage",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/log:initialize",
+    ],
+)

@@ -1,0 +1,290 @@
+/*
+ * Copyright 2024 Google LLC
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ *
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ */
+
+syntax = "proto2";
+
+import "fuzz/proto/common.proto";
+
+message MachPortName {
+  // TODO(nedwill): name vs. port?
+  optional MachPort port = 1;
+}
+
+message MachPort {
+  optional PortNumberMach port = 1;
+}
+
+message MachMsgHeaderBits {
+  // MACH_MSGH_BITS_SET
+  optional MachMsgTypeName remote = 1;
+  optional MachMsgTypeName local = 2;
+  optional MachMsgTypeName voucher = 3;
+  // optional uint32 other = 4;
+}
+
+enum MachMsgCopyOptions {
+  FUZZED_MACH_MSG_PHYSICAL_COPY = 0;
+  FUZZED_MACH_MSG_VIRTUAL_COPY = 1;
+  FUZZED_MACH_MSG_ALLOCATE = 2;
+}
+
+message MachMsgHeader {
+  optional MachMsgHeaderBits msgh_bits = 1;
+  // mach_msg_size_t       msgh_size;
+  optional MachPort msgh_remote_port = 2;
+  optional MachPort msgh_local_port = 3;
+  optional MachPortName msgh_voucher_port = 4;
+  // TODO(nedwill): use enum for message ID or set it based on the body type
+  optional int32 msgh_id = 5;
+}
+
+message MachMsgPortDescriptor {
+  optional MachPort name = 1;
+  optional MachMsgTypeName disposition = 2;
+  // optional MachMsgDescriptorType type = 3;
+}
+
+// TODO(nedwill): pass data to this message
+message MachMsgOolDescriptor {
+  // TODO(nedwill): nested data located at first element?
+  // optional uint64 address = 1;
+  optional bool deallocate = 2;
+  optional MachMsgCopyOptions copy = 3;
+  // TODO(nedwill): does it make sense to specify this here?
+  optional uint32 size = 4;
+}
+
+message MachMsgOolPortsDescriptor {
+  // optional uint64 address = 1;
+  optional bool deallocate = 2;
+  optional MachMsgCopyOptions copy = 3;
+  optional MachMsgTypeName disposition = 4;
+  // optional MachMsgDescriptorType type = 5;
+  repeated MachPortName names = 5;
+}
+
+enum MachMsgGuardFlags {
+  MACH_MSG_GUARD_FLAGS_NONE = 0x0000;
+  MACH_MSG_GUARD_FLAGS_IMMOVABLE_RECEIVE =
+      0x0001; /* Move the receive right and mark it as immovable */
+  MACH_MSG_GUARD_FLAGS_UNGUARDED_ON_SEND =
+      0x0002;                         /* Verify that the port is unguarded */
+  MACH_MSG_GUARD_FLAGS_MASK = 0x0003; /* Valid flag bits */
+}
+
+message MachMsgGuardedPortDescriptor {
+  optional uint64 context = 1;
+  // mach_msg_guard_flags_t        flags : 16;
+  optional MachMsgGuardFlags flags = 2;
+  optional MachMsgTypeName disposition = 3;
+  optional MachPortName name = 4;
+}
+
+message MachMsgDescriptor {
+  oneof descriptor {
+    MachMsgPortDescriptor port = 1;
+    MachMsgOolDescriptor out_of_line = 2;
+    MachMsgOolPortsDescriptor ool_ports = 3;
+    MachMsgGuardedPortDescriptor guarded_port = 4;
+    MachMsgOolDescriptor out_of_line_volatile = 5;
+  }
+}
+
+enum MachMsgOverwriteOption {
+  FUZZED_MACH_SEND_MSG = 0x00000001;
+  FUZZED_MACH_RCV_MSG = 0x00000002;
+
+  FUZZED_MACH_RCV_LARGE = 0x00000004; /* report large message sizes */
+  FUZZED_MACH_RCV_LARGE_IDENTITY =
+      0x00000008; /* identify source of large messages */
+
+  FUZZED_MACH_SEND_TIMEOUT = 0x00000010;   /* timeout value applies to send */
+  FUZZED_MACH_SEND_OVERRIDE = 0x00000020;  /* priority override for send */
+  FUZZED_MACH_SEND_INTERRUPT = 0x00000040; /* don't restart interrupted sends */
+  FUZZED_MACH_SEND_NOTIFY = 0x00000080;    /* arm send-possible notify */
+  FUZZED_MACH_SEND_ALWAYS = 0x00010000;    /* ignore qlimits - kernel only */
+  FUZZED_MACH_SEND_TRAILER = 0x00020000;   /* sender-provided trailer */
+  FUZZED_MACH_SEND_NOIMPORTANCE = 0x00040000; /* msg won't carry importance */
+  FUZZED_MACH_SEND_IMPORTANCE =
+      0x00080000; /* msg carries importance - kernel only */
+  FUZZED_MACH_SEND_SYNC_OVERRIDE =
+      0x00100000; /* msg should do sync ipc override */
+  FUZZED_MACH_SEND_PROPAGATE_QOS =
+      0x00200000; /* IPC should propagate the caller's QoS */
+  FUZZED_MACH_SEND_KERNEL =
+      0x00400000; /* full send from kernel space - kernel only */
+  FUZZED_MACH_SEND_SYNC_BOOTSTRAP_CHECKIN =
+      0x00800000; /* special reply port should boost thread doing sync bootstrap
+                     checkin */
+
+  FUZZED_MACH_RCV_TIMEOUT = 0x00000100; /* timeout value applies to receive */
+  FUZZED_MACH_RCV_NOTIFY = 0x00000000; /* legacy name (value was: 0x00000200) */
+  FUZZED_MACH_RCV_INTERRUPT =
+      0x00000400;                       /* don't restart interrupted receive */
+  FUZZED_MACH_RCV_VOUCHER = 0x00000800; /* willing to receive voucher port */
+  // FUZZED_MACH_RCV_OVERWRITE = 0x00000000;      /* scatter receive
+  // (deprecated) */
+  FUZZED_MACH_RCV_GUARDED_DESC =
+      0x00001000; /* Can receive new guarded descriptor */
+  FUZZED_MACH_RCV_SYNC_WAIT = 0x00004000; /* sync waiter waiting for rcv */
+  FUZZED_MACH_RCV_SYNC_PEEK = 0x00008000; /* sync waiter waiting to peek */
+
+  FUZZED_MACH_MSG_STRICT_REPLY = 0x00000200;
+}
+
+enum MachMsgTypeName {
+  FUZZED_MACH_MSG_TYPE_PORT_NONE = 0;
+  FUZZED_MACH_MSG_TYPE_PORT_NAME = 15;
+  FUZZED_MACH_MSG_TYPE_MOVE_RECEIVE = 16;
+  FUZZED_MACH_MSG_TYPE_MOVE_SEND = 17;
+  FUZZED_MACH_MSG_TYPE_MOVE_SEND_ONCE = 18;
+  FUZZED_MACH_MSG_TYPE_COPY_SEND = 19;
+  FUZZED_MACH_MSG_TYPE_MAKE_SEND = 20;
+  FUZZED_MACH_MSG_TYPE_MAKE_SEND_ONCE = 21;
+  FUZZED_MACH_MSG_TYPE_COPY_RECEIVE = 22;
+  FUZZED_MACH_MSG_TYPE_DISPOSE_RECEIVE = 24;
+  FUZZED_MACH_MSG_TYPE_DISPOSE_SEND = 25;
+  FUZZED_MACH_MSG_TYPE_DISPOSE_SEND_ONCE = 26;
+}
+
+enum MachPortRight {
+  FUZZED_MACH_PORT_RIGHT_SEND = 0;
+  FUZZED_MACH_PORT_RIGHT_RECEIVE = 1;
+  FUZZED_MACH_PORT_RIGHT_SEND_ONCE = 2;
+  FUZZED_MACH_PORT_RIGHT_PORT_SET = 3;
+  FUZZED_MACH_PORT_RIGHT_DEAD_NAME = 4;
+  FUZZED_MACH_PORT_RIGHT_LABELH = 5;
+  FUZZED_MACH_PORT_RIGHT_NUMBER = 6;
+}
+
+enum MachPortOptionsFlag {
+  MPO_CONTEXT_AS_GUARD = 0x01;    /* Add guard to the port */
+  MPO_QLIMIT = 0x02;              /* Set qlimit for the port msg queue */
+  MPO_TEMPOWNER = 0x04;           /* Set the tempowner bit of the port */
+  MPO_IMPORTANCE_RECEIVER = 0x08; /* Mark the port as importance receiver */
+  MPO_INSERT_SEND_RIGHT = 0x10;   /* Insert a send right for the port */
+  MPO_STRICT = 0x20;              /* Apply strict guarding for port */
+  MPO_DENAP_RECEIVER = 0x40;      /* Mark the port as App de-nap receiver */
+  MPO_IMMOVABLE_RECEIVE =
+      0x80; /* Mark the port as immovable; protected by the guard context */
+  MPO_FILTER_MSG = 0x100; /* Allow message filtering */
+  MPO_TG_BLOCK_TRACKING =
+      0x200; /* Track blocking relationship for thread group during sync IPC */
+}
+
+message MachMsg {
+  optional MachMsgHeader header = 1;
+  // Optional complex descriptors
+  repeated MachMsgDescriptor body = 2;
+  optional bytes data = 3;
+}
+
+enum MachEventlinkCreateOption {
+  FUZZED_MELC_OPTION_NONE = 0;
+  FUZZED_MELC_OPTION_NO_COPYIN = 1;
+  FUZZED_MELC_OPTION_WITH_COPYIN = 2;
+}
+
+enum MachEventlinkAssociateOption {
+  FUZZED_MELA_OPTION_NONE = 0;
+  FUZZED_MELA_OPTION_ASSOCIATE_ON_WAIT = 1;
+}
+
+enum MachEventlinkDisassociateOption {
+  FUZZED_MELD_OPTION_NONE = 0;
+}
+
+enum VmProtection {
+  FUZZED_VM_PROT_NONE = 0;
+  FUZZED_VM_PROT_READ = 1;
+  FUZZED_VM_PROT_WRITE = 2;
+  FUZZED_VM_PROT_EXECUTE = 3;
+}
+
+// Get around 32-bit protobuf limitiation
+enum MachMsg2OptionUpperBits {
+	FUZZED_MACH64_MSG_VECTOR = 0x00000001;
+	FUZZED_MACH64_SEND_KOBJECT_CALL = 0x00000002;
+	FUZZED_MACH64_SEND_MQ_CALL = 0x00000004;
+	FUZZED_MACH64_SEND_ANY = 0x00000008;
+	FUZZED_MACH64_RCV_LINEAR_VECTOR = 0x10000000;
+	FUZZED_MACH64_RCV_STACK = 0x20000000;
+	FUZZED_MACH64_PEEK_MSG = 0x40000000;
+	// FUZZED_MACH64_MACH_MSG2 = 0x80000000;
+}
+
+enum MachMsg2Option {
+  // FUZZED_MACH64_MSG_OPTION_USER = 0;
+  // FUZZED_MACH64_MACH_MSG2 = 1;
+  // FUZZED_MACH64_SEND_FILTER_NONFATAL = 2;
+  // FUZZED_MACH64_MSG_VECTOR = 3;
+	FUZZED_MACH64_MSG_OPTION_NONE = 0x0;
+  FUZZED_MACH64_SEND_MSG = 0x00000001;
+  FUZZED_MACH64_RCV_MSG = 0x00000002;
+  FUZZED_MACH64_RCV_LARGE = 0x00000004;
+  FUZZED_MACH64_RCV_LARGE_IDENTITY = 0x00000008;
+  FUZZED_MACH64_SEND_TIMEOUT = 0x00000010;
+  FUZZED_MACH64_SEND_OVERRIDE = 0x00000020;
+  FUZZED_MACH64_SEND_INTERRUPT = 0x00000040;
+  FUZZED_MACH64_SEND_NOTIFY = 0x00000080;
+  FUZZED_MACH64_SEND_ALWAYS = 0x00010000;
+  FUZZED_MACH64_SEND_TRAILER = 0x00020000;
+  FUZZED_MACH64_SEND_NOIMPORTANCE = 0x00040000;
+  FUZZED_MACH64_SEND_IMPORTANCE = 0x00080000;
+  FUZZED_MACH64_SEND_SYNC_OVERRIDE = 0x00100000;
+  FUZZED_MACH64_SEND_PROPAGATE_QOS = 0x00200000;
+  FUZZED_MACH64_SEND_KERNEL = 0x00400000;
+  FUZZED_MACH64_SEND_SYNC_BOOTSTRAP_CHECKIN = 0x00800000;
+  FUZZED_MACH64_RCV_TIMEOUT = 0x00000100;
+  // FUZZED_MACH64_RCV_NOTIFY = 0x00000000;
+  FUZZED_MACH64_RCV_INTERRUPT = 0x00000400;
+  FUZZED_MACH64_RCV_VOUCHER = 0x00000800;
+  // FUZZED_MACH64_RCV_OVERWRITE = 0x00000000;
+  FUZZED_MACH64_RCV_GUARDED_DESC = 0x00001000;
+  FUZZED_MACH64_RCV_SYNC_WAIT = 0x00004000;
+  FUZZED_MACH64_RCV_SYNC_PEEK = 0x00008000;
+  FUZZED_MACH64_MSG_STRICT_REPLY = 0x00000200;
+}
+
+message MachMsg2Trap {
+  optional MachMsg data = 1;
+  // optional uint64 options = 2;
+  repeated MachMsg2Option options = 2;
+  repeated MachMsg2OptionUpperBits options_upper_bits = 3;
+  // TODO(nedwill): aren't all of these options already inside the MachMsg header?
+  optional uint64 msgh_bits_and_send_size = 4;
+  optional MachPortName msgh_remote_port = 5;
+  optional MachPortName msgh_local_port = 6;
+  optional MachPortName msgh_voucher_port = 7;
+  optional uint32 msgh_id = 8;
+  optional uint32 desc_count = 9;
+  optional MachPortName rcv_name = 10;
+  optional uint32 rcv_size = 11;
+  optional int32 priority = 12;
+  optional uint64 timeout = 13;
+}

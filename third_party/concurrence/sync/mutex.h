@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Google LLC
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,12 @@
 #ifndef VIRTUAL_MUTEX_H_
 #define VIRTUAL_MUTEX_H_
 
-#include "absl/container/flat_hash_set.h"
-#include "sync.h"
+#include <set>
 
-#include "executor/executor.h"
+#include "absl/container/flat_hash_set.h"
+#include "third_party/concurrence/scheduler/scheduler.h"
+#include "sync.h"
+#include "third_party/concurrence/executor/executor.h"
 
 class SyncTracker;
 
@@ -28,13 +30,17 @@ class VirtualMutex : public Sync {
  public:
   explicit VirtualMutex(SyncTracker *sync_tracker);
   ~VirtualMutex() override;
+  VirtualMutex(const VirtualMutex &) = delete;
+  VirtualMutex(VirtualMutex &&) = delete;
+  VirtualMutex &operator=(const VirtualMutex &) = delete;
+  VirtualMutex &operator=(VirtualMutex &&) = delete;
 
   void Lock();
   bool TryLock();
   void Unlock();
 
-  bool Held();
-  void AssertHeld();
+  bool Held() const;
+  void AssertHeld() const;
 
   bool IsOwned() override;
   bool IsOwnedBy(ThreadHandle handle) override;

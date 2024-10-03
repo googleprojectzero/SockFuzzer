@@ -1,4 +1,0 @@
-[libfuzzer]
-fork = 1
-max_len = 4096
-use_value_profile = 1

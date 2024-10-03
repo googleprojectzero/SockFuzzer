@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Google LLC
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,28 +17,35 @@
 #ifndef CONCURRENCE_SYNC_H_
 #define CONCURRENCE_SYNC_H_
 
+#include <deque>
+#include <functional>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "third_party/concurrence/executor/executor.h"
+#include "third_party/concurrence/scheduler/scheduler.h"
 
-#include "executor/executor.h"
-
-class Scheduler;
 class SyncTracker;
+class Scheduler;
 
 class Sync {
  public:
   explicit Sync(SyncTracker *sync_tracker);
   virtual ~Sync();
+  Sync(const Sync &) = delete;
+  Sync(Sync &&) = delete;
+  Sync &operator=(const Sync &) = delete;
+  Sync &operator=(Sync &&) = delete;
 
   void AddWaiter();
-  void ClearAndUnblockWaiters();
+  void RemoveWaiter();
+  void WakeupWaiters();
 
   Scheduler *scheduler() { return scheduler_; }
 
-  const std::vector<void *> &construction_backtrace() {
-    return construction_backtrace_;
+  const std::unique_ptr<StackTrace> &construction_stacktrace() {
+    return construction_stacktrace_;
   }
 
   virtual bool IsOwned() = 0;
@@ -46,18 +53,14 @@ class Sync {
   // Some sync primitives have multiple owners
   virtual const absl::flat_hash_set<ThreadHandle> &owners() = 0;
 
-  const absl::flat_hash_set<ThreadHandle> &waiters() { return waiters_; }
+  const std::vector<ThreadHandle> &waiters() { return waiters_; }
 
-  absl::flat_hash_map<ThreadHandle, std::vector<void *>> &owner_backtraces() {
+  absl::flat_hash_map<ThreadHandle, std::unique_ptr<StackTrace>> &owner_backtraces() {
     return owner_backtraces_;
   }
 
   void HandleNestedWait();
   void HandleBlockedMainThread();
-
- protected:
-  // Logs stacktraces and checks for deadlocks and nested locking
-  bool enable_debug_checks_;
 
  private:
   void DetectDeadlock();
@@ -67,9 +70,9 @@ class Sync {
   // reference for a slight performance boost.
   Scheduler *scheduler_;
 
-  absl::flat_hash_set<ThreadHandle> waiters_;
-  std::vector<void *> construction_backtrace_;
-  absl::flat_hash_map<ThreadHandle, std::vector<void *>> owner_backtraces_;
+  std::vector<ThreadHandle> waiters_;
+  std::unique_ptr<StackTrace> construction_stacktrace_;
+  absl::flat_hash_map<ThreadHandle, std::unique_ptr<StackTrace>> owner_backtraces_;
 };
 
 #endif

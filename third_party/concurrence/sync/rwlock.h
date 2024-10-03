@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Google LLC
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,11 +17,15 @@
 #ifndef VIRTUAL_RWLOCK_H_
 #define VIRTUAL_RWLOCK_H_
 
-#include "absl/container/flat_hash_set.h"
+#include <cstddef>
+#include <unordered_map>
+#include <unordered_set>
 
-#include "executor/executor.h"
-#include "sync/mutex.h"
-#include "sync/sync.h"
+#include "third_party/concurrence/scheduler/scheduler.h"
+#include "absl/container/flat_hash_set.h"
+#include "third_party/concurrence/executor/executor.h"
+#include "third_party/concurrence/sync/mutex.h"
+#include "third_party/concurrence/sync/sync.h"
 
 class SyncTracker;
 
@@ -29,6 +33,10 @@ class VirtualRwLock : public Sync {
  public:
   explicit VirtualRwLock(SyncTracker *sync_tracker);
   ~VirtualRwLock() override;
+  VirtualRwLock(const VirtualRwLock &) = delete;
+  VirtualRwLock(VirtualRwLock &&) = delete;
+  VirtualRwLock &operator=(const VirtualRwLock &) = delete;
+  VirtualRwLock &operator=(VirtualRwLock &&) = delete;
 
   bool TryLockExclusive();
   void LockExclusive();

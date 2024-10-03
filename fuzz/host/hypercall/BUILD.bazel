@@ -1,0 +1,43 @@
+# Header-only library to expose interface to XNU
+cc_library(
+    name = "headers",
+    hdrs = [
+        "hypercall.h",
+        "interrupt.h",
+        "lock.h",
+        "thread.h",
+        "types.h",
+    ],
+    visibility = [
+        "//fuzz/common:__pkg__",
+        "//fuzz/host:__pkg__",
+        "//fuzz/xnu:__subpackages__",
+        "//third_party/xnu:__pkg__",
+    ],
+    deps = [
+        "//fuzz/xnu/osfmk:api_headers",
+        "//fuzz/xnu/osfmk:fake_headers",
+        "//third_party/concurrence/executor:headers",
+    ],
+)
+
+cc_library(
+    name = "hypercall",
+    srcs = [
+        "hypercall.cc",
+    ],
+    visibility = [
+        "//:__pkg__",
+        "//fuzz:__subpackages__",
+    ],
+    deps = [
+        ":headers",
+        "//fuzz/host:headers",
+        "//fuzz/xnu/bsd:headers",
+        "//fuzz/xnu/osfmk:api_headers",
+        "//third_party/concurrence/executor",
+        "//third_party/concurrence/scheduler:fuzzed_scheduler",
+        "//third_party/concurrence/sync",
+        "@com_google_absl//absl/strings:str_format",
+    ],
+)

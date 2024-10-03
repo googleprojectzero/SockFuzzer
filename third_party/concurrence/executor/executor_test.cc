@@ -1,4 +1,4 @@
-// Copyright 2022 Google LLC
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,12 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "executor/executor.h"
+#include "third_party/concurrence/executor/executor.h"
 
+#include <memory>
+
+#include "third_party/concurrence/executor/executor_test_template.h"
+#include "third_party/concurrence/executor/stdthread/thread_executor.h"
 #include "gtest/gtest.h"
 
-#include "executor/executor_test_template.h"
-#include "executor/stdthread/thread_executor.h"
+bool is_verbose = false;
 
 Executor* g_executor;
 

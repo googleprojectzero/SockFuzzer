@@ -1,4 +1,4 @@
-// Copyright 2022 Google LLC
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,14 +14,14 @@
 
 #include "executor.h"
 
-#include "backtrace/backtrace.h"
+#include "third_party/concurrence/backtrace/backtrace.h"
 
 ThreadHandle g_current_thread;
 
 Executor::~Executor() = default;
 
 void Executor::SetBacktrace(ThreadHandle handle) {
-  GetBacktrace(backtraces_[handle]);
+  backtraces_[handle] = std::make_unique<StackTrace>();
 }
 
 void Executor::PrintBacktrace(ThreadHandle handle) {
@@ -29,7 +29,7 @@ void Executor::PrintBacktrace(ThreadHandle handle) {
     return;
   }
 
-  PrintBacktraceFromStack(backtraces_[handle]);
+  backtraces_[handle]->Print();
 }
 
 void Executor::DeleteBacktrace(ThreadHandle handle) {

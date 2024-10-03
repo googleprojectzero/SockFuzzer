@@ -1,0 +1,116 @@
+build --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host
+build --crosstool_top=@llvm_toolchain//:toolchain
+
+# TODO(nedwill): remove this if possible so we can build Docker images
+# on non-Linux AMD64 platforms
+build --@io_bazel_rules_docker//transitions:enable=false
+
+# Force the use of Clang for C++ builds.
+build --action_env=CC=clang
+build --action_env=CXX=clang++
+build --linkopt=-fuse-ld=mold
+# build --action_env=BAZEL_CXXOPTS="-std=c++20"
+build --cxxopt=-std=c++20
+build --host_cxxopt=-std=c++20
+
+# Use CWD for running binaries
+# run --run_under='bash -c "cd \"$BUILD_WORKING_DIRECTORY\" && exec"'
+
+# Test output settings
+test --test_output=errors
+test --test_summary=terse
+
+# TODO(nedwill): remove this
+build --copt=-mllvm
+build --copt=-asan-stack=0
+
+# Needed for fast unwinding
+build --copt=-fno-omit-frame-pointer
+
+# For Centipede stack trace support
+build --copt=-mcrc32
+
+# TODO(nedwill): we should not use this when building for oss-fuzz
+build --copt=-march=native
+
+# Ignore some warnings, including warnings about unknown warnings.
+# TODO(nedwill): Use OSS-Fuzz compiler everywhere so we can avoid no-unknown-warning-option.
+build --copt=-Wno-unknown-warning-option
+build --copt=-Wno-deprecated-builtins
+build --per_file_copt=^(third_party/.*|external/.*)$@-Wno-deprecated-pragma
+build --per_file_copt=^(third_party/.*|external/.*)$@-Wno-deprecated-non-prototype
+build --per_file_copt=^(third_party/.*|external/.*)$@-Wno-fortify-source
+
+build --copt=-ggdb
+build --copt=-gdwarf-aranges
+
+# Debug information and path mapping settings
+# These settings affect how debug information is generated and how paths are recorded
+# in the debug symbols. They interact with the VS Code debugger configuration.
+# Note: These settings, particularly the debug-prefix-map, work in conjunction with
+# the 'set substitute-path' command in the VS Code launch configuration. If debugging
+# issues arise, consider adjusting both this setting and the VS Code configuration.
+# 
+# Known issue: The combination of these settings and the VS Code debugger may result
+# in paths with '././' prefixes, which is addressed in the launch.json configuration.
+# This issue has only been observed when running midas-rr remotely via the Remote SSH
+# extension for VS Code.
+build --copt=-fdebug-prefix-map=/proc/self/cwd=.
+build --features=oso_prefix_is_pwd
+
+# Fix build graph blowup by aligning normal build settings with those used
+# in cc_fuzz_test.
+build --dynamic_mode=off
+
+# Used for building visual coverage reports
+build:clang-coverage --copt=-fprofile-instr-generate
+build:clang-coverage --copt=-fcoverage-mapping
+build:clang-coverage --linkopt=-fprofile-instr-generate
+build:clang-coverage --platform_suffix=clang-coverage
+
+# valgrind performance profiling
+build:valgrind --copt=-DLIMIT_CALLGRIND_SCOPE
+build:valgrind --copt=-O3
+build:valgrind --copt=-ggdb
+
+# Strip instrumentation from non-target code
+# TODO(nedwill): just negate the /third_party/xnu folder
+# TODO(nedwill): consider selective instrumentation for different targets
+build:libfuzzer --per_file_copt=third_party/libprotobuf-mutator/src/.*,concurrence/.*,fuzz/.*,external/com_google_protobuf/.*,.*\.pb\.cc,external/com_google_absl/.*,external/com_google_googletest/.*,external/centipede/.*,-external/centipede/puzzles/.*,-external/centipede/.*fuzz_target@-fsanitize-coverage=0
+
+# Strip sanitizers from uninteresting code
+# build:libfuzzer --per_file_copt=third_party/libprotobuf-mutator/src/.*,concurrence/.*,fuzz/.*,external/com_google_protobuf/.*,.*\.pb\.cc,external/com_google_absl/.*,external/com_google_googletest/.*,external/centipede/.*,-external/centipede/puzzles/.*,-external/centipede/.*fuzz_target@-fno-sanitize=address\\,memory\\,undefined
+
+build:asan --copt=-fsanitize=address
+build:asan --linkopt=-fsanitize=address
+build:asan --platform_suffix=asan
+test:asan --test_env=ASAN_OPTIONS=detect_leaks=0
+
+# Should these be for all builds or just opt builds?
+build:opt --per_file_copt='\\.pb\\.cc$@-g0'
+build:opt --per_file_copt=.*\.pb\.cc@-fsanitize-coverage=0
+build:opt --per_file_copt=concurrence/.*@-fsanitize-coverage=0
+build:opt --per_file_copt=external/com_google_absl/.*@-fsanitize-coverage=0
+build:opt --per_file_copt=external/com_google_googletest/.*@-fsanitize-coverage=0
+build:opt --per_file_copt=external/com_google_protobuf/.*@-fsanitize-coverage=0
+build:opt --per_file_copt=external/zlib/.*@-fsanitize-coverage=0
+build:opt --per_file_copt=fuzz/.*@-fsanitize-coverage=0
+build:opt --per_file_copt=fuzz/common/.*@-fsanitize-coverage=0
+build:opt --per_file_copt=fuzz/common/mig_types/.*@-fsanitize-coverage=0
+build:opt --per_file_copt=fuzz/xnu/.*@-fsanitize-coverage=0
+build:opt --per_file_copt=third_party/backward-cpp/.*@-fsanitize-coverage=0
+build:opt --per_file_copt=third_party/bootstrap_cmds/.*@-fsanitize-coverage=0
+build:opt --per_file_copt=third_party/libco/.*@-fsanitize-coverage=0
+build:opt --per_file_copt=third_party/libprotobuf-mutator/src/.*@-fsanitize-coverage=0
+build:opt --per_file_copt=tools/generate_syscall/.*@-fsanitize-coverage=0
+
+# No Centipede except test binaries
+build:centipede --per_file_copt=external/centipede/.*,-external/centipede/puzzles/.*,-external/centipede/.*fuzz_target@-fsanitize-coverage=0
+build:centipede --platform_suffix=centipede
+
+# Enforce stricter environment rules, which eliminates some non-hermetic
+# behavior and therefore improves both the remote cache hit rate and the
+# correctness and repeatability of the build.
+build --incompatible_strict_action_env=true
+# TODO(nedwill): this will become default in Bazel 7 but breaks crosstool_top
+# build --incompatible_enable_cc_toolchain_resolution
