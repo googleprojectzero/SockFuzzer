@@ -698,14 +698,16 @@ zone_t zone_create_ext(const char *name, vm_size_t size,
    * Else simply maintain a pointer to the name string as it can only
    * be a core XNU zone (no unloadable kext exists before lockdown).
    */
-  if (startup_phase >= STARTUP_SUB_LOCKDOWN) {
-    size_t nsz = MIN(strlen(name) + 1, MACH_ZONE_NAME_MAX_LEN);
-    char *buf = zalloc_permanent(nsz, ZALIGN_NONE);
-    strlcpy(buf, name, nsz);
-    z->z_name = buf;
-  } else {
-    z->z_name = name;
-  }
+ if (startup_phase >= STARTUP_SUB_LOCKDOWN) {
+  size_t name_len = strlen(name);
+  size_t nsz = MIN(name_len + 1, MACH_ZONE_NAME_MAX_LEN);  // +1 for null-terminator
+  char *buf = zalloc_permanent(nsz, ZALIGN_NONE);
+  strlcpy(buf, name, nsz);
+  z->z_name = buf;
+ } else {
+  z->z_name = name;
+ }
+
   if (__probable(zone_array[ZONE_ID_PERCPU_PERMANENT].z_self)) {
     z->z_stats = zalloc_percpu_permanent_type(struct zone_stats);
   } else {
